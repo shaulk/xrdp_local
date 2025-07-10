@@ -1,0 +1,12 @@
+# vim temporary files
+*.sw*
+
+# Qt temporary files
+Makefile
+.qmake.*
+moc_qt.cpp
+moc_predefs.h
+
+# Target and build objects
+xrdp_local
+*.o
