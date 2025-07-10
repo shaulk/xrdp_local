@@ -25,6 +25,10 @@ LIBS += -L/usr/lib/x86_64-linux-gnu/xrdp -lxup -lcommon
 # Additional Qt modules to use
 QT += widgets
 
+unix {
+	multiarch_path = $$getenv(DEB_HOST_MULTIARCH)
+	QMAKE_LFLAGS += -Wl,-rpath,/usr/lib/$$multiarch_path/xrdp
+}
 
 HEADERS += src/common.h \
 		   src/qt.h \

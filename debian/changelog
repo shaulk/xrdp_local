@@ -1,0 +1,5 @@
+xrdp_local (0.1-1) UNRELEASED; urgency=medium
+
+  * Initial release. (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+
+ -- Shaul <shaulk@users.noreply.github.com>  Fri, 11 Jul 2025 02:32:38 +0300
