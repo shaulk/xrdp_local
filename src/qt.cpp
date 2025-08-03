@@ -21,7 +21,7 @@ static char *fake_argv[] = { (char *)"xrdp_local", nullptr };
 // #define USE_COPIES
 #define USE_BORROWS
 
-QtState::QtState(XRDPLocalState *xrdp_local, int max_displays)
+QtState::QtState(XRDPLocalState *xrdp_local, int max_displays) : app_ready_latch(1)
 {
 	this->xrdp_local = xrdp_local;
 	this->max_displays = max_displays;
@@ -61,6 +61,9 @@ void QtState::launch()
 	window = new QtWindow(this, full_width, full_height);
 
 	connect(this, &QtState::paint_rects_signal, window, &QtWindow::paint_rects_slot);
+
+	// Unblock painting calls
+	app_ready_latch.count_down();
 }
 
 void QtState::run()
@@ -72,6 +75,7 @@ void QtState::run()
 
 void QtState::paint_rects(int x, int y, unsigned char *data, int srcx, int srcy, int width, int height, int num_rects, xrdp_rect_spec *rects)
 {
+	app_ready_latch.wait();
 	if (srcx != 0 || srcy != 0) {
 		throw std::runtime_error("srcx and srcy must be 0");
 	}
@@ -82,6 +86,7 @@ void QtState::paint_rects(int x, int y, unsigned char *data, int srcx, int srcy,
 #ifdef USE_BORROWS
 	SyncChangeReference change = SyncChangeReference(width, height, data, num_rects, rects);
 	emit paint_rects_signal(&change, x, y);
+	change.block_until_data_is_not_used();
 #endif
 }
 
@@ -111,7 +116,7 @@ void QtState::set_cursor(int x, int y, unsigned char *data, unsigned char *mask,
 	window->setCursor(cursor);
 }
 
-SyncChangeReference::SyncChangeReference(int width, int height, unsigned char *input_data, int num_rects, xrdp_rect_spec *rects)
+SyncChangeReference::SyncChangeReference(int width, int height, unsigned char *input_data, int num_rects, xrdp_rect_spec *rects) : release_latch(1)
 {
  #ifdef USE_COPIES
 	uint64_t size = width * height * 4;
@@ -135,7 +140,6 @@ SyncChangeReference::SyncChangeReference(int width, int height, unsigned char *i
 #ifdef USE_BORROWS
 	this->data = input_data;
 	this->rects = rects;
-	release_lock.lock();
 #endif
 }
 
@@ -145,16 +149,19 @@ SyncChangeReference::~SyncChangeReference()
 	free(data);
 	free(rects);
 #endif
-#ifdef USE_BORROWS
-	release_lock.lock();
-	release_lock.unlock();
-#endif
 }
 
 void SyncChangeReference::signal_data_is_not_used()
 {
 #ifdef USE_BORROWS
-	release_lock.unlock();
+	release_latch.count_down();
+#endif
+}
+
+void SyncChangeReference::block_until_data_is_not_used()
+{
+#ifdef USE_BORROWS
+	release_latch.wait();
 #endif
 }
 

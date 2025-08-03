@@ -19,7 +19,7 @@ INCLUDEPATH += ./xrdp/common
 
 QMAKE_CXXFLAGS_RELEASE -= -O2
 QMAKE_CXXFLAGS_RELEASE += -O3
-QMAKE_CXXFLAGS += -Wno-unused-parameter -g
+QMAKE_CXXFLAGS += -Wno-unused-parameter -g -std=c++20
 LIBS += -L/usr/lib/x86_64-linux-gnu/xrdp -lxup -lcommon
 
 # Additional Qt modules to use

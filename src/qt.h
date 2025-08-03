@@ -5,6 +5,7 @@
 // This module is responsible for displaying the screens, and handling mouse and
 // keyboard events, by launching a Qt application.
 
+#include <latch>
 #include <QApplication>
 #include <QWidget>
 #include <QObject>
@@ -40,6 +41,7 @@ public:
 
 	// Signal that the data is no longer needed
 	void signal_data_is_not_used();
+	void block_until_data_is_not_used();
 
 private:
 	unsigned char *data;
@@ -48,8 +50,11 @@ private:
 	int width;
 	int height;
 
-	// This lock is used internally by signal_data_is_not_used and the destructor
-	std::mutex release_lock;
+	// This latch is used to prevent SyncChangeReference from never being
+	// freed (by the paint_rect_signal leading to nowhere before the app is
+	// properly initialized), which causes hangs (with USE_BORROWS) or memory
+	// leaks (with USE_COPIES).
+	std::latch release_latch;
 };
 
 class QtState;
@@ -154,7 +159,7 @@ private:
 
 	// This prevents the xup client thread from calling painting before the
 	// Qt application is ready
-	std::mutex app_ready_lock;
+	std::latch app_ready_latch;
 };
 
 #endif

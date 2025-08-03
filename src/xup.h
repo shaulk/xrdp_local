@@ -43,7 +43,6 @@ private:
 	XRDPLocalState *xrdp_local;
 	QtState *qt;
 
-
 	// The path to the socket that xorgxrdp listens on
 	const char *socket_path;
 
