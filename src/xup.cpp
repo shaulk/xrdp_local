@@ -497,6 +497,7 @@ void XRDPModState::xup_communicator_thread_func() {
 			qt->exit();
 			break;
 		}
+		process_xrdp_events();
 		xup_communicator_mutex.unlock();
 		usleep(1000);
 	}
@@ -557,7 +558,7 @@ void XRDPModState::event_mouse_up(int x, int y, int button) {
 			log(LOG_WARN, "Ignoring unknown button: %d\n", button);
 			return;
 	}
-	xup_mod->mod_event(xup_mod, event, x, y, 0, 0);
+	enqueue_xrdp_event(event, x, y, 0, 0);
 }
 
 void XRDPModState::event_scroll_horizontal(int x, int y, int direction) {
@@ -568,8 +569,8 @@ void XRDPModState::event_scroll_horizontal(int x, int y, int direction) {
 		event_down = WM_BUTTON7DOWN;
 		event_up = WM_BUTTON7UP;
 	}
-	xup_mod->mod_event(xup_mod, event_down, x, y, 0, 0);
-	xup_mod->mod_event(xup_mod, event_up, x, y, 0, 0);
+	enqueue_xrdp_event(event_down, x, y, 0, 0);
+	enqueue_xrdp_event(event_up, x, y, 0, 0);
 }
 
 void XRDPModState::event_scroll_vertical(int x, int y, int direction) {
@@ -580,8 +581,8 @@ void XRDPModState::event_scroll_vertical(int x, int y, int direction) {
 		event_down = WM_BUTTON5DOWN;
 		event_up = WM_BUTTON5UP;
 	}
-	xup_mod->mod_event(xup_mod, event_down, x, y, 0, 0);
-	xup_mod->mod_event(xup_mod, event_up, x, y, 0, 0);
+	enqueue_xrdp_event(event_down, x, y, 0, 0);
+	enqueue_xrdp_event(event_up, x, y, 0, 0);
 }
 
 void XRDPModState::key_down(int scan_code) {
@@ -602,58 +603,81 @@ void XRDPModState::send_key_event_from_x_scancode(int event_type, int x_scancode
 	log(LOG_DEBUG, "send_key_event_from_x_scancode: %d, %d\n", event_type, x_scancode);
 	switch (x_scancode) {
 		case 108: // right alt
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 56, IS_EXT);
+			enqueue_xrdp_event(event_type, 0, 0, 56, IS_EXT);
 			break;
 		case 105: // right ctrl
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 29, IS_EXT);
+			enqueue_xrdp_event(event_type, 0, 0, 29, IS_EXT);
 			break;
 		case 127: // pause
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 102, 0);
+			enqueue_xrdp_event(event_type, 0, 0, 102, 0);
 			break;
 		case 104: // return (enter on numpad)
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 28, IS_EXT);
+			enqueue_xrdp_event(event_type, 0, 0, 28, IS_EXT);
 			break;
 		case 106: // /
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 104, IS_EXT);
+			enqueue_xrdp_event(event_type, 0, 0, 104, IS_EXT);
 			break;
 		case 107: // Print Screen
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 55, IS_EXT);
+			enqueue_xrdp_event(event_type, 0, 0, 55, IS_EXT);
 			break;
 		case 135: // menu
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 93, 0);
+			enqueue_xrdp_event(event_type, 0, 0, 93, 0);
 			break;
 		case 111: // up arrow
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 72, IS_EXT);
+			enqueue_xrdp_event(event_type, 0, 0, 72, IS_EXT);
 			break;
 		case 113: // left arrow
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 75, IS_EXT);
+			enqueue_xrdp_event(event_type, 0, 0, 75, IS_EXT);
 			break;
 		case 114: // right arrow
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 77, IS_EXT);
+			enqueue_xrdp_event(event_type, 0, 0, 77, IS_EXT);
 			break;
 		case 116: // down arrow
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 80, IS_EXT);
+			enqueue_xrdp_event(event_type, 0, 0, 80, IS_EXT);
 			break;
 		case 112: // page up
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 73, IS_EXT);
+			enqueue_xrdp_event(event_type, 0, 0, 73, IS_EXT);
 			break;
 		case 117: // page down
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 81, IS_EXT);
+			enqueue_xrdp_event(event_type, 0, 0, 81, IS_EXT);
 			break;
 		case 110: // home
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 71, IS_EXT);
+			enqueue_xrdp_event(event_type, 0, 0, 71, IS_EXT);
 			break;
 		case 115: // end
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 79, IS_EXT);
+			enqueue_xrdp_event(event_type, 0, 0, 79, IS_EXT);
 			break;
 		case 118: // insert
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 82, IS_EXT);
+			enqueue_xrdp_event(event_type, 0, 0, 82, IS_EXT);
 			break;
 		case 119: // delete
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, 83, IS_EXT);
+			enqueue_xrdp_event(event_type, 0, 0, 83, IS_EXT);
 			break;
 		default:
-			xup_mod->mod_event(xup_mod, event_type, 0, 0, x_scancode - 8, 0);
+			enqueue_xrdp_event(event_type, 0, 0, x_scancode - 8, 0);
 			break;
+	}
+}
+
+void XRDPModState::enqueue_xrdp_event(int msg, tbus param1, tbus param2, tbus param3, tbus param4) {
+	if (xup_mod->mod_event == nullptr) {
+		return;
+	}
+	xrdp_event event;
+	event.msg = msg;
+	event.param1 = param1;
+	event.param2 = param2;
+	event.param3 = param3;
+	event.param4 = param4;
+	xrdp_events.push(event);
+}
+
+void XRDPModState::process_xrdp_events() {
+	while (!xrdp_events.empty()) {
+		xrdp_event event = xrdp_events.front();
+		xrdp_events.pop();
+		if (xup_mod->mod_event != nullptr) {
+			xup_mod->mod_event(xup_mod, event.msg, event.param1, event.param2, event.param3, event.param4);
+		}
 	}
 }

@@ -25,6 +25,15 @@ typedef intptr_t tintptr;
 class XRDPLocalState;
 class QtState;
 
+// A queued event to be sent to xorgxrdp
+struct xrdp_event {
+	int msg;
+	tbus param1;
+	tbus param2;
+	tbus param3;
+	tbus param4;
+};
+
 // Wraps around libxup and provides a convenient interface to xorgxrdp
 class XRDPModState {
 	friend XRDPModState *xrdp_mod_state_from_mod(struct mod *mod);
@@ -50,6 +59,15 @@ private:
 	// The libxup init and exit functions
 	struct mod *(*mod_init)(void);
 	int (*mod_exit)(struct mod *v);
+
+	// Queue of xrdp events we need to send using mod_event
+	std::queue<xrdp_event> xrdp_events;
+
+	// Enqueue an xrdp event to be processed by process_xrdp_events
+	void enqueue_xrdp_event(int msg, tbus param1, tbus param2, tbus param3, tbus param4);
+
+	// Send events in the queue using mod_event
+	void process_xrdp_events();
 
 	// Setup the xup module
 	void setup_xup_mod();
