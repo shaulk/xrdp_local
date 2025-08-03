@@ -114,6 +114,7 @@ void QtState::set_cursor(int x, int y, unsigned char *data, unsigned char *mask,
 	}
 	QCursor cursor(QPixmap::fromImage(QImage((unsigned char *)data_argb32, width, height, QImage::Format_ARGB32)), x, y);
 	window->setCursor(cursor);
+	free(data_argb32);
 }
 
 SyncChangeReference::SyncChangeReference(int width, int height, unsigned char *input_data, int num_rects, xrdp_rect_spec *rects) : release_latch(1)
