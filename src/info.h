@@ -1,9 +1,13 @@
 #ifndef INFO_H
 #define INFO_H
 
+// Misc information structures
+
 #include <cstdint>
 #include <vector>
 
+// Represents a single display as returned by Qt, to be used by xup to inform
+// xorgxrdp of our desired display configuration
 class display {
 public:
 	display(int x, int y, int width, int height, int physical_width, int physical_height, int orientation, int refresh_rate);
@@ -29,6 +33,8 @@ private:
 	int refresh_rate;
 };
 
+// Represents the display configuration as returned by Qt, to be used by xup
+// to inform xorgxrdp of our desired display configuration
 class DisplayInfo {
 public:
 	DisplayInfo(std::vector<display> displays);

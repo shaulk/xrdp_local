@@ -13,6 +13,11 @@
 static int fake_argc = 1;
 static char *fake_argv[] = { (char *)"xrdp_local", nullptr };
 
+// Choose between two implementations of moving screen data from xup to Qt
+// USE_COPIES mallocs new buffers, copies the data and returns to xup
+// immediately.
+// USE_BORROWS blocks the xup client thread until Qt finishes drawing and gives
+// Qt a borrowed pointer to the data.
 // #define USE_COPIES
 #define USE_BORROWS
 
@@ -93,42 +98,24 @@ void QtState::set_cursor(int x, int y, unsigned char *data, unsigned char *mask,
 			}
 		}
 	}
-//	for (int y = 0; y < height; y++) {
-//		for (int x = 0; x < width; x++) {
-//			printf("%08X ", data_argb32[y * width + x]);
-//			printf("%06X ", *(uint32_t *)&data[y * width * Bpp + x * Bpp] & 0xFFFFFF);
-//			printf("%01X ", (mask[y * width / 8 + x / 8] >> (7 - (x % 8))) & 1);
-//		}
-//		printf("\n");
-//	}
-//	fflush(stdout);
-//	QImage image = QImage(data, width, height, QImage::Format_RGB888).convertToFormat(QImage::Format_ARGB32);
-//	QBitmap mask_bitmap = QBitmap::fromImage(QImage(mask, width, height, QImage::Format_Mono));
-//	QPainter painter(&image);
-//	painter.setCompositionMode(QPainter::CompositionMode_DestinationIn);
-//	painter.drawImage(0, 0, mask_bitmap.toImage().convertToFormat(QImage::Format_Alpha8));
-//	painter.end();
 	QCursor cursor(QPixmap::fromImage(QImage((unsigned char *)data_argb32, width, height, QImage::Format_ARGB32)), x, y);
-	// QCursor cursor(QPixmap::fromImage(image), x, y);
 	window->setCursor(cursor);
-//	free(data_argb32);
 }
 
 SyncChangeReference::SyncChangeReference(int width, int height, unsigned char *input_data, int num_rects, xrdp_rect_spec *rects)
 {
-//	log(LOG_DEBUG, "image_buffer::image_buffer\n");
  #ifdef USE_COPIES
 	uint64_t size = width * height * 4;
 	this->data = (unsigned char *)malloc(size);
 	if (this->data == nullptr) {
 		log(LOG_ERROR, "malloc failed: %s\n", strerror(errno));
-		throw "malloc failed";
+		throw std::runtime_error("malloc failed");
 	}
 	this->rects = (xrdp_rect_spec *)malloc(num_rects * sizeof(xrdp_rect_spec));
 	if (this->rects == nullptr) {
 		log(LOG_ERROR, "malloc failed: %s\n", strerror(errno));
 		free(this->data);
-		throw "malloc failed";
+		throw std::runtime_error("malloc failed");
 	}
 	memcpy(this->data, input_data, size);
 	memcpy(this->rects, rects, num_rects * sizeof(xrdp_rect_spec));
@@ -145,12 +132,10 @@ SyncChangeReference::SyncChangeReference(int width, int height, unsigned char *i
 
 SyncChangeReference::~SyncChangeReference()
 {
-//	log(LOG_DEBUG, "image_buffer::~image_buffer\n");
 #ifdef USE_COPIES
 	free(data);
 	free(rects);
 #endif
-//	log(LOG_DEBUG, "freed data\n");
 #ifdef USE_BORROWS
 	release_lock.lock();
 	release_lock.unlock();
@@ -229,23 +214,22 @@ void QtWindow::paintEvent(QPaintEvent *event) {
 }
 
 void QtWindow::mousePressEvent(QMouseEvent *event) {
-//	log(LOG_DEBUG, "mousePressEvent: %d, %d\n", event->x(), event->y());
+	log(LOG_DEBUG, "mousePressEvent: %d, %d, qt=%d\n", event->x(), event->y(), event->button());
 	qt->get_xrdp_local()->get_xup()->event_mouse_down(event->x(), event->y(), event->button());
 }
 
 void QtWindow::mouseReleaseEvent(QMouseEvent *event) {
-//	log(LOG_DEBUG, "mouseReleaseEvent: %d, %d\n", event->x(), event->y());
+	log(LOG_DEBUG, "mouseReleaseEvent: %d, %d, qt=%d\n", event->x(), event->y(), event->button());
 	qt->get_xrdp_local()->get_xup()->event_mouse_up(event->x(), event->y(), event->button());
 }
 
 void QtWindow::mouseMoveEvent(QMouseEvent *event) {
-//	log(LOG_DEBUG, "mouseMoveEvent: %d, %d\n", event->x(), event->y());
+	log(LOG_DEBUG, "mouseMoveEvent: %d, %d\n", event->x(), event->y());
 	qt->get_xrdp_local()->get_xup()->event_mouse_move(event->x(), event->y());
 }
 
 void QtWindow::wheelEvent(QWheelEvent *event) {
 	log(LOG_DEBUG, "wheelEvent: %d, %d, %d, %d\n", event->position().x(), event->position().y(), event->pixelDelta().x(), event->pixelDelta().y());
-	// XRDPLocalState->get_xup()->event_scroll_vertical(event->x(), event->y(), event->delta());
 	if (event->pixelDelta().y() != 0) {
 		qt->get_xrdp_local()->get_xup()->event_scroll_vertical(event->position().x(), event->position().y(), event->pixelDelta().y() > 0 ? 1 : -1);
 	}
@@ -255,12 +239,12 @@ void QtWindow::wheelEvent(QWheelEvent *event) {
 }
 
 void QtWindow::keyPressEvent(QKeyEvent *event) {
-	// log(LOG_DEBUG, "keyPressEvent: native=%d\n", event->nativeScanCode());
-	// log(LOG_DEBUG, "keyPressEvent: key=%d\n", event->key());
+	log(LOG_DEBUG, "keyPressEvent: native=%d\n", event->nativeScanCode());
 	qt->get_xrdp_local()->get_xup()->key_down(event->nativeScanCode());
 }
 
 void QtWindow::keyReleaseEvent(QKeyEvent *event) {
+	log(LOG_DEBUG, "keyReleaseEvent: native=%d\n", event->nativeScanCode());
 	qt->get_xrdp_local()->get_xup()->key_up(event->nativeScanCode());
 }
 

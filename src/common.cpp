@@ -3,8 +3,10 @@
 
 #include "common.h"
 
+static int log_level = LOG_INFO;
+
 void log(int level, const char *format, ...) {
-	if (level < LOG_DEBUG) {
+	if (level > log_level) {
 		return;
 	}
 
@@ -12,4 +14,9 @@ void log(int level, const char *format, ...) {
 	va_start(args, format);
 	vfprintf(stderr, format, args);
 	va_end(args);
+	fflush(stderr);
+}
+
+void set_log_level(int level) {
+	log_level = level;
 }

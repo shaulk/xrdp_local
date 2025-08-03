@@ -1,6 +1,11 @@
 #ifndef XRDPLOCAL_XUP_H
 #define XRDPLOCAL_XUP_H
 
+// xrdp xup client module
+// This module is responsible for communicating with xorgxrdp (the driver
+// loaded into Xorg by xrdp), by using xrdp's libxup.
+
+// Headers from xrdp/common
 extern "C" {
 	#include "mock_config_ac.h"
 	#include "xup/xup.h"
@@ -8,42 +13,66 @@ extern "C" {
 
 #include <thread>
 #include <mutex>
+#include <queue>
 
 #include "qt.h"
 
-// #include "xrdp_client_info.h"
-
+// These are private in xrdp, but we need them for the xup client module
 typedef intptr_t tbus;
 typedef intptr_t tintptr;
 
+// Forward declarations
 class XRDPLocalState;
 class QtState;
 
+// Wraps around libxup and provides a convenient interface to xorgxrdp
 class XRDPModState {
 	friend XRDPModState *xrdp_mod_state_from_mod(struct mod *mod);
 
 private:
+	// Application state
 	XRDPLocalState *xrdp_local;
-	const char *socket_path;
 	QtState *qt;
 
+
+	// The path to the socket that xorgxrdp listens on
+	const char *socket_path;
+
+	// The xup module reference as initialized by mod_init
 	struct mod *xup_mod;
+
+	// The client info we send to xorgxrdp
 	struct xrdp_client_info client_info;
 
+	// dlopen handle to libxup
 	void *mod_dl;
+
+	// The libxup init and exit functions
 	struct mod *(*mod_init)(void);
 	int (*mod_exit)(struct mod *v);
 
+	// Setup the xup module
 	void setup_xup_mod();
+
+	// Setup the client info we send to xorgxrdp
 	void setup_xup_client_info();
+
+	// Fill out our implementation of the xup functions for libxup
 	void setup_xup_functions();
 
+	// The thread that polls for messages from xorgxrdp
 	void xup_communicator_thread_func();
 	std::thread xup_communicator_thread;
-	std::mutex xup_communicator_mutex;
 	int running = 1;
 
+	// Synchonizes communication on the xup socket
+	std::mutex xup_communicator_mutex;
 
+	// Used by keyboard events to convert xrdp scancodes to xrdp events
+	void send_key_event_from_x_scancode(int event_type, int x_scancode);
+
+	// Functions we export to libxup
+	// These are all static and use mod->wm to save a pointer to XRDPModState
 	static int server_begin_update(struct mod *v);
 	static int server_end_update(struct mod *v);
 
@@ -202,12 +231,11 @@ private:
 						char *cmd, int cmd_bytes,
 						char *data, int data_bytes);
 
-	void send_key_event_from_x_scancode(int event_type, int x_scancode);
-
 public:
 	XRDPModState(XRDPLocalState *xrdp_local, QtState *qt, const char *socket_path);
 	~XRDPModState();
 
+	// Event handlers called by the Qt client
 	void event_mouse_move(int x, int y);
 	void event_mouse_down(int x, int y, int button);
 	void event_mouse_up(int x, int y, int button);
@@ -217,6 +245,7 @@ public:
 	void key_up(int scan_code);
 };
 
+// Helper function to get the XRDPModState from the xup module reference
 XRDPModState *xrdp_mod_state_from_mod(struct mod *mod);
 
 #endif // XRDPLOCAL_XUP_H

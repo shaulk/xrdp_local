@@ -10,18 +10,18 @@
 #include "info.h"
 
 extern "C" {
-	// log.h from common
+	// Headers from xrdp
 	#include "log.h"
 	#include "trans.h"
 }
 
 int XRDPModState::server_begin_update(struct mod *v) {
-//	log(LOG_DEBUG, "server_begin_update\n");
+	log(LOG_DEBUG, "server_begin_update\n");
 	return 0;
 }
 
 int XRDPModState::server_end_update(struct mod *v) {
-//	log(LOG_DEBUG, "server_end_update\n");
+	log(LOG_DEBUG, "server_end_update\n");
 	return 0;
 }	
 
@@ -54,7 +54,7 @@ int XRDPModState::server_msg(struct mod *v, const char *msg, int code) {
 }
 
 int XRDPModState::server_is_term(void) {
-	// TODO: Actually return if the server is terminating
+	log(LOG_DEBUG, "Server is closing.\n");
 	return 0;
 }
 
@@ -118,8 +118,7 @@ int XRDPModState::client_monitor_resize(struct mod *v, int width, int height,
 }
 
 int XRDPModState::server_monitor_resize_done(struct mod *v) {
-	// TODO: Actually do something with the info
-	log(LOG_DEBUG, "Got server_monitor_resize_done\n");
+	log(LOG_DEBUG, "Got server_monitor_resize_done.\n");
 	return 0;
 }
 
@@ -219,8 +218,8 @@ int XRDPModState::server_monitored_desktop(struct mod *v,
 int XRDPModState::server_set_cursor_ex(struct mod *v, int x, int y, char *data,
 							char *mask, int bpp) {
 	log(LOG_DEBUG, "server_set_cursor_ex: %d, %d, %d\n", x, y, bpp);
-	int Bpp;
-	Bpp = (bpp == 0) ? 3 : (bpp + 7) / 8;
+	// This is exactly the same as in xrdp
+	int Bpp = (bpp == 0) ? 3 : (bpp + 7) / 8;
 	XRDPModState *xrdp_mod_state = xrdp_mod_state_from_mod(v);
 	xrdp_mod_state->qt->set_cursor(x, y, (unsigned char *)data, (unsigned char *)mask, 32, 32, Bpp * 8);
 	return 0;
@@ -268,8 +267,7 @@ int XRDPModState::server_set_pointer_large(struct mod *v, int x, int y,
 								int width, int height) {
 	// This code is untested, but it should work according to a reading of xorgxrdp's code
 	log(LOG_DEBUG, "server_set_pointer_large: %d, %d, %d, %d, %d\n", x, y, bpp, width, height);
-	int Bpp;
-	Bpp = (bpp == 0) ? 3 : (bpp + 7) / 8;
+	int Bpp = (bpp == 0) ? 3 : (bpp + 7) / 8;
 	XRDPModState *xrdp_mod_state = xrdp_mod_state_from_mod(v);
 	xrdp_mod_state->qt->set_cursor(x, y, (unsigned char *)data, (unsigned char *)mask, width, height, Bpp * 8);
 	return 0;
@@ -283,17 +281,9 @@ int XRDPModState::server_paint_rects_ex(struct mod *v,
 							int flags, int frame_id,
 							void *shmem_ptr, int shmem_bytes) {
 	log(LOG_DEBUG, "server_paint_rects_ex: %d, %d, %d, %d, %d, %d, %d, %d\n", num_drects, num_crects, left, top, width, height, flags, frame_id);
-	for (int i = 0; i < num_drects; i++) {
-		xrdp_rect_spec *rect = (xrdp_rect_spec *)&drects[i * 4];
-		log(LOG_DEBUG, "drect %d: %d, %d, %d, %d\n", i, rect->x, rect->y, rect->cx, rect->cy);
-	}
 	XRDPModState *xrdp_mod_state = xrdp_mod_state_from_mod(v);
-//	log(LOG_DEBUG, "XRDPModState: %p\n", XRDPModState);
-//	log(LOG_DEBUG, "qt: %p\n", xrdp_mod_state->qt);
 	xrdp_mod_state->qt->paint_rects(left, top, (unsigned char *)data, 0, 0, width, height, num_drects, (xrdp_rect_spec *)drects);
 	v->mod_frame_ack(v, flags, frame_id);
-	// XRDPModState *xrdp_mod_state = xrdp_mod_state_from_mod(v);
-	// v->mod_event(v, WM_INVALIDATE, MAKELONG(0, 0), MAKELONG(600, 800), 0, 0);
 	if (shmem_ptr != nullptr) {
 		munmap(shmem_ptr, shmem_bytes);
 	}
@@ -340,7 +330,6 @@ XRDPModState::XRDPModState(XRDPLocalState *xrdp_local, QtState *qt, const char *
 }
 
 XRDPModState::~XRDPModState() {
-	// Copy it back since mod_exit does g_free
 	running = 0;
 	xup_communicator_thread.join();
 	mod_exit(xup_mod);
@@ -406,41 +395,68 @@ void XRDPModState::setup_xup_client_info() {
 	memset(&client_info, 0, sizeof(client_info));
 	client_info.size = sizeof(client_info);
 	client_info.version = CLIENT_INFO_CURRENT_VERSION;
+
+	// We always claim to have multiple displays even if we have only one so we
+	// always use the multimon code path within xorgxrdp to avoid
+	// incompatibility bugs
 	client_info.multimon = 1;
+
+	// Bits per pixel
 	client_info.bpp = 32;
-	client_info.pointer_flags = 1; // enable color pointers(they don't have a constant for this)
+
+	// Enable color pointers (xrdp doesn't have a constant for this)
+	client_info.pointer_flags = 1;
+
 	// This enables server_set_pointer_large, which is untested but should work
 	client_info.large_pointer_support_flags = LARGE_POINTER_FLAG_96x96;
+
 	// This one is the fastest for xorgxrdp, because xorg uses it internally so xorgxrdp just does memcpy
 	client_info.capture_format = XRDP_a8r8g8b8;
+
 	// Default to some sane values
 	client_info.display_sizes.session_width = 1;
 	client_info.display_sizes.session_height = 1;
+
 	auto displays = display_info->get_displays();
 	client_info.display_sizes.monitorCount = std::min((int)displays.size(), CLIENT_MONITOR_DATA_MAXIMUM_MONITORS);
-	client_info.normal_frame_interval = 16; // Sane default at ~60 fps
+
+	// Sane default for ~60 fps
+	client_info.normal_frame_interval = 16;
+
 	for (unsigned int i = 0; i < client_info.display_sizes.monitorCount; i++) {
 		auto display = displays[i];
 		client_info.display_sizes.minfo[i].left = display.get_x();
 		client_info.display_sizes.minfo[i].top = display.get_y();
+
+		// These specify the actual bottom and right pixel numbers, so the -1 is
+		// not an error
 		client_info.display_sizes.minfo[i].right = display.get_x() + display.get_width() - 1;
 		client_info.display_sizes.minfo[i].bottom = display.get_y() + display.get_height() - 1;
+
 		client_info.display_sizes.minfo[i].physical_width = display.get_physical_width();
 		client_info.display_sizes.minfo[i].physical_height = display.get_physical_height();
 		client_info.display_sizes.minfo[i].orientation = display.get_orientation();
+
 		client_info.display_sizes.minfo[i].desktop_scale_factor = 100;
 		client_info.display_sizes.minfo[i].device_scale_factor = 100;
-		client_info.display_sizes.minfo[i].is_primary = i == 0;
+
+		client_info.display_sizes.minfo[i].is_primary = (i == 0);
+
+		// Resize the full width to include every display
 		client_info.display_sizes.session_width = std::max((int)client_info.display_sizes.session_width, client_info.display_sizes.minfo[i].right + 1);
 		client_info.display_sizes.session_height = std::max((int)client_info.display_sizes.session_height, client_info.display_sizes.minfo[i].bottom + 1);
+
+		// Update the frame interval using the lowest refresh rate of all displays
 		client_info.normal_frame_interval = std::min(client_info.normal_frame_interval, (int)(1000 / display.get_refresh_rate()));
 	}
+
+	// Set the client description to the name of the application
 	snprintf(client_info.client_description, sizeof(client_info.client_description), "xrdp_local");
-	log(LOG_DEBUG, "normal_frame_interval: %d\n", client_info.normal_frame_interval);
+
+	log(LOG_DEBUG, "normal_frame_interval set to %d\n", client_info.normal_frame_interval);
 }
 
 void XRDPModState::setup_xup_mod() {
-	log(LOG_DEBUG, "XRDPModState: %p\n", this);
 	setup_xup_client_info();
 	setup_xup_functions();
 	DisplayInfo *display_info = qt->get_display_info();
@@ -467,7 +483,7 @@ void XRDPModState::setup_xup_mod() {
 		xup_mod->mod_event(xup_mod, WM_KEYBRD_SYNC, 0, 0, 0, 0);
 	}
 	xup_communicator_thread = std::thread(&XRDPModState::xup_communicator_thread_func, this);
-	log(LOG_DEBUG, "xup_mod.mod_connect successful.\n");
+	log(LOG_INFO, "Connected to X server.\n");
 }
 
 void XRDPModState::xup_communicator_thread_func() {
@@ -477,23 +493,23 @@ void XRDPModState::xup_communicator_thread_func() {
 		xup_communicator_mutex.lock();
 		if (trans_check_wait_objs(xup_mod->trans) != 0) {
 			log(LOG_ERROR, "xup_mod->trans closed connection.\n");
+			xup_communicator_mutex.unlock();
 			qt->exit();
 			break;
 		}
 		xup_communicator_mutex.unlock();
-//		log(LOG_DEBUG, "trans_check_wait_objs result: %d\n", result);
 		usleep(1000);
 	}
 	log(LOG_DEBUG, "xup_communicator_thread_func ended.\n");
 }
 
 void XRDPModState::event_mouse_move(int x, int y) {
-//	log(LOG_DEBUG, "event_mouse_move: %d, %d\n", x, y);
+	log(LOG_DEBUG, "event_mouse_move: %d, %d\n", x, y);
 	xup_mod->mod_event(xup_mod, WM_MOUSEMOVE, x, y, 0, 0);
 }
 
 void XRDPModState::event_mouse_down(int x, int y, int button) {
-//	log(LOG_DEBUG, "event_mouse_down: %d, %d, %d\n", x, y, button);
+	log(LOG_DEBUG, "event_mouse_down: %d, %d, %d\n", x, y, button);
 	int event = 0;
 	switch (button) {
 		case 1:
@@ -519,7 +535,7 @@ void XRDPModState::event_mouse_down(int x, int y, int button) {
 }
 
 void XRDPModState::event_mouse_up(int x, int y, int button) {
-//	log(LOG_DEBUG, "event_mouse_up: %d, %d, %d\n", x, y, button);
+	log(LOG_DEBUG, "event_mouse_up: %d, %d, %d\n", x, y, button);
 	int event = 0;
 	switch (button) {
 		case 1:
