@@ -65,7 +65,7 @@ public slots:
 	// This is called by the QtState thread to paint a rectangle
 	// It's connected to QtState::paint_rect_signal and used to allow the xup
 	// thread to paint a rectangle.
-	void paint_rect_slot(SyncChangeReference *change, int x, int y);
+	void paint_rects_slot(SyncChangeReference *change, int x, int y);
 
 public:
 	QtWindow(QtState *QtState, int width, int height);
@@ -88,7 +88,11 @@ public:
 
 private:
 	QtState *qt;
-	QImage image;
+
+	// This is the actual framebuffer of the screens
+	// We need to keep it in RAM because X11 sometimes asks applications to
+	// redraw parts of themselves when not using compositing
+	QImage framebuffer;
 
 	// This is used to map Qt mouse buttons to xrdp mouse buttons
 	int qt_mouse_button_to_xrdp_mouse_button(Qt::MouseButton button);
@@ -128,11 +132,12 @@ public:
 
 signals:
 	// Used to trigger QtWindow::paint_rect_slot
-	void paint_rect_signal(SyncChangeReference *change, int x, int y);
+	void paint_rects_signal(SyncChangeReference *change, int x, int y);
 
 private:
 	// The maximum number of displays to use
 	int max_displays;
+	int displays_to_use;
 
 	// The width and height of the rectangle that contains all screens
 	int full_width;

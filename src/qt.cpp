@@ -40,17 +40,27 @@ QtState::~QtState()
 
 void QtState::launch()
 {
+	displays_to_use = QGuiApplication::screens().count();
+	if (max_displays > 0) {
+		displays_to_use = std::min(max_displays, displays_to_use);
+	}
+
 	full_width = 0;
 	full_height = 0;
-	for (int i = 0; i < std::min(max_displays, QGuiApplication::screens().count()); i++) {
+
+	for (int i = 0; i < displays_to_use; i++) {
 		QScreen *screen = QGuiApplication::screens().at(i);
 		auto geometry = screen->geometry();
 		full_width = std::max(full_width, geometry.x() + geometry.width());
 		full_height = std::max(full_height, geometry.y() + geometry.height());
+		log(LOG_DEBUG, "Display %d at %dx%d, %dx%d\n", i, geometry.x(), geometry.y(), geometry.width(), geometry.height());
 	}
-	log(LOG_DEBUG, "full_width: %d, full_height: %d\n", full_width, full_height);
+
+	log(LOG_DEBUG, "Initialized Qt with %d displays, full_width: %d, full_height: %d\n", displays_to_use, full_width, full_height);
+
 	window = new QtWindow(this, full_width, full_height);
-	connect(this, &QtState::paint_rect_signal, window, &QtWindow::paint_rect_slot);
+
+	connect(this, &QtState::paint_rects_signal, window, &QtWindow::paint_rects_slot);
 }
 
 void QtState::run()
@@ -63,23 +73,22 @@ void QtState::run()
 void QtState::paint_rects(int x, int y, unsigned char *data, int srcx, int srcy, int width, int height, int num_rects, xrdp_rect_spec *rects)
 {
 	if (srcx != 0 || srcy != 0) {
-		throw "srcx and srcy must be 0";
+		throw std::runtime_error("srcx and srcy must be 0");
 	}
-	log(LOG_DEBUG, "paint_rect x: %d, y: %d, width: %d, height: %d\n", x, y, width, height);
  #ifdef USE_COPIES
 	SyncChangeReference *change = new SyncChangeReference(width, height, data, num_rects, rects);
-	emit paint_rect_signal(change, x, y);
+	emit paint_rects_signal(change, x, y);
 #endif
 #ifdef USE_BORROWS
 	SyncChangeReference change = SyncChangeReference(width, height, data, num_rects, rects);
-	emit paint_rect_signal(&change, x, y);
+	emit paint_rects_signal(&change, x, y);
 #endif
 }
 
 void QtState::set_cursor(int x, int y, unsigned char *data, unsigned char *mask, int width, int height, int bpp)
 {
 	if (bpp == 32) {
-		// Assume ARGB32 with correct alpha
+		// Assume ARGB32 with correct alpha (which is what xorgxrdp sends when using full color cursors)
 		QImage image = QImage((unsigned char *)data, width, height, QImage::Format_ARGB32).mirrored(false, true);
 		QCursor cursor(QPixmap::fromImage(image), x, y);
 		window->setCursor(cursor);
@@ -177,7 +186,7 @@ int SyncChangeReference::get_height()
 QtWindow::QtWindow(QtState *QtState, int width, int height)
 {
 	this->qt = QtState;
-	image = QImage(width, height, QImage::Format_RGB32);
+	framebuffer = QImage(width, height, QImage::Format_RGB32);
 	resize(width, height);
 	setMouseTracking(true);
 	setWindowFlags(Qt::FramelessWindowHint);
@@ -187,19 +196,21 @@ QtWindow::QtWindow(QtState *QtState, int width, int height)
 QtWindow::~QtWindow() {
 }
 
-void QtWindow::paint_rect_slot(SyncChangeReference *change, int x, int y)
+void QtWindow::paint_rects_slot(SyncChangeReference *change, int x, int y)
 {
-//	log(LOG_DEBUG, "paint_rect_slot x: %d, y: %d\n", x, y);
-	QPainter painter(&this->image);
-	QImage new_image(change->get_data(), change->get_width(), change->get_height(), QImage::Format_RGB32);
-	// painter.drawImage(QPoint(x, y), new_image);
-	int num_rects = change->get_num_rects();
-	for (int i = 0; i < num_rects; i++) {
-		xrdp_rect_spec *rect = &change->get_rects()[i];
-		painter.drawImage(QRect(rect->x, rect->y, rect->cx, rect->cy), new_image, QRect(rect->x, rect->y, rect->cx, rect->cy));
+	try {
+		QPainter painter(&this->framebuffer);
+		QImage new_image(change->get_data(), change->get_width(), change->get_height(), QImage::Format_RGB32);
+		int num_rects = change->get_num_rects();
+		for (int i = 0; i < num_rects; i++) {
+			xrdp_rect_spec *rect = &change->get_rects()[i];
+			painter.drawImage(QRect(rect->x, rect->y, rect->cx, rect->cy), new_image, QRect(rect->x, rect->y, rect->cx, rect->cy));
+		}
+		update();
+	} catch (const std::exception &e) {
+		log(LOG_ERROR, "paint_rect_slot caught exception: %s\n", e.what());
+		qt->exit();
 	}
-	painter.drawImage(QPoint(x, y), new_image);
-	update();
 #ifdef USE_COPIES
 	delete change;
 #endif
@@ -210,7 +221,7 @@ void QtWindow::paint_rect_slot(SyncChangeReference *change, int x, int y)
 
 void QtWindow::paintEvent(QPaintEvent *event) {
 	QPainter painter(this);
-	painter.drawImage(event->rect(), image, event->rect());
+	painter.drawImage(event->rect(), framebuffer, event->rect());
 }
 
 int QtWindow::qt_mouse_button_to_xrdp_mouse_button(Qt::MouseButton button) {
@@ -285,7 +296,7 @@ DisplayInfo *QtState::get_display_info()
 {
 	std::vector<display> displays;
 	auto screens = QGuiApplication::screens();
-	for (int i = 0; i < std::min(screens.count(), max_displays); i++) {
+	for (int i = 0; i < std::min(screens.count(), displays_to_use); i++) {
 		QScreen *screen = screens.at(i);
 		int orientation;
 		// RDP uses degrees for orientation
