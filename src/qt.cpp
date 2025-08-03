@@ -213,14 +213,42 @@ void QtWindow::paintEvent(QPaintEvent *event) {
 	painter.drawImage(event->rect(), image, event->rect());
 }
 
+int QtWindow::qt_mouse_button_to_xrdp_mouse_button(Qt::MouseButton button) {
+	switch (button) {
+		case Qt::LeftButton:
+			return 1;
+		case Qt::RightButton:
+			return 2;
+		case Qt::MiddleButton:
+			return 4;
+		case Qt::BackButton:
+			return 8;
+		case Qt::ForwardButton:
+			return 9;
+		default:
+			return -1;
+	}
+}
 void QtWindow::mousePressEvent(QMouseEvent *event) {
-	log(LOG_DEBUG, "mousePressEvent: %d, %d, qt=%d\n", event->x(), event->y(), event->button());
-	qt->get_xrdp_local()->get_xup()->event_mouse_down(event->x(), event->y(), event->button());
+	int x_button = qt_mouse_button_to_xrdp_mouse_button(event->button());
+	if (x_button == -1) {
+		log(LOG_WARN, "mousePressEvent: Unknown Qt button %d\n", event->button());
+		return;
+	}
+
+	log(LOG_DEBUG, "mousePressEvent: %d, %d, qt=%d x=%d\n", event->x(), event->y(), event->button(), x_button);
+	qt->get_xrdp_local()->get_xup()->event_mouse_down(event->x(), event->y(), x_button);
 }
 
 void QtWindow::mouseReleaseEvent(QMouseEvent *event) {
-	log(LOG_DEBUG, "mouseReleaseEvent: %d, %d, qt=%d\n", event->x(), event->y(), event->button());
-	qt->get_xrdp_local()->get_xup()->event_mouse_up(event->x(), event->y(), event->button());
+	int x_button = qt_mouse_button_to_xrdp_mouse_button(event->button());
+	if (x_button == -1) {
+		log(LOG_WARN, "mouseReleaseEvent: Unknown Qt button %d\n", event->button());
+		return;
+	}
+
+	log(LOG_DEBUG, "mouseReleaseEvent: %d, %d, qt=%d x=%d\n", event->x(), event->y(), event->button(), x_button);
+	qt->get_xrdp_local()->get_xup()->event_mouse_up(event->x(), event->y(), x_button);
 }
 
 void QtWindow::mouseMoveEvent(QMouseEvent *event) {

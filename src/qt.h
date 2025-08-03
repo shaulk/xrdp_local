@@ -89,6 +89,9 @@ public:
 private:
 	QtState *qt;
 	QImage image;
+
+	// This is used to map Qt mouse buttons to xrdp mouse buttons
+	int qt_mouse_button_to_xrdp_mouse_button(Qt::MouseButton button);
 };
 
 // Main Qt state class
