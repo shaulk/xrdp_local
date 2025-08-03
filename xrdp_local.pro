@@ -26,7 +26,11 @@ LIBS += -L/usr/lib/x86_64-linux-gnu/xrdp -lxup -lcommon
 QT += widgets
 
 unix {
-	multiarch_path = $$getenv(DEB_HOST_MULTIARCH)
+	multiarch_path = $$system(dpkg-architecture -qDEB_HOST_MULTIARCH)
+	# Sane default for when not on Ubuntu (though then the path will be wrong anyway)
+	!multiarch_path {
+		multiarch_path = x86_64-linux-gnu
+	}
 	QMAKE_LFLAGS += -Wl,-rpath,/usr/lib/$$multiarch_path/xrdp
 }
 

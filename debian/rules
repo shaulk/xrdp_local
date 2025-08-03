@@ -14,6 +14,12 @@
 # Package maintainers to append LDFLAGS.
 #export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
 
+override_dh_auto_configure:
+	if [ "$$(dpkg-query -W -f '$${Version}' xrdp)" != "$$(dpkg-parsechangelog --show-field Version)" ]; then \
+		echo "xrdp version mismatch, expected $$(dpkg-parsechangelog --show-field Version) but installed version is $$(dpkg-query -W -f '$${Version}' xrdp)" >&2; \
+		exit 1; \
+	fi;
+	dh_auto_configure
 
 %:
 	dh $@ --buildsystem=qmake
