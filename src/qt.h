@@ -68,7 +68,7 @@ class QtState;
 class EGLState {
 public:
 	EGLState(
-		intptr_t x11_display,
+		const char *x11_display,
 		int window_id,
 		int fd,
 		uint32_t width,
@@ -83,7 +83,7 @@ public:
 	void render();
 
 	// Check if EGL is supported on the given display
-	static bool is_supported(intptr_t x11_display);
+	static bool is_supported(const char *x11_display);
 
 private:
 	// Import a DMA-BUF image reference into our EGL state using
@@ -202,7 +202,7 @@ signals:
 	void paint_rects_signal(SyncChangeReference *change, int x, int y);
 
 private:
-	int x11_display();
+	char *x11_display();
 
 	// The maximum number of displays to use
 	int max_displays;

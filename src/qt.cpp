@@ -10,6 +10,7 @@
 #include <QThread>
 #include <QBitmap>
 #include <cstdlib>
+#include <X11/Xlib.h>
 
 static int fake_argc = 1;
 static char *fake_argv[] = { (char *)"xrdp_local", nullptr };
@@ -28,7 +29,7 @@ QtState::QtState(XRDPLocalState *xrdp_local, int max_displays, bool use_dma_buf)
 	this->max_displays = max_displays;
 	this->use_dma_buf = use_dma_buf;
 
-	QCoreApplication::setAttribute(Qt::AA_DisableHighDpiScaling);
+	QCoreApplication::setAttribute(Qt::AA_Use96Dpi);
 
 	app = new QApplication(fake_argc, fake_argv);
 	window = nullptr;
@@ -53,9 +54,27 @@ QtState::~QtState()
 	delete app;
 }
 
-int QtState::x11_display() {
-	// TODO
-	return 0;
+char *QtState::x11_display() {
+	auto x11_app = app->nativeInterface<QNativeInterface::QX11Application>();
+	if (x11_app == nullptr) {
+		log(LOG_WARN, "QX11Application is not available.");
+		return nullptr;
+	}
+	auto display = x11_app->display();
+	if (display == nullptr) {
+		log(LOG_WARN, "QX11Application::display() is not available.");
+		return nullptr;
+	}
+	char *displayName = XDisplayString(display);
+	if (displayName == nullptr) {
+		log(LOG_WARN, "XDisplayString returned nullptr.");
+		return nullptr;
+	}
+	if (strlen(displayName) == 0) {
+		log(LOG_WARN, "XDisplayString returned an empty string.");
+		return nullptr;
+	}
+	return displayName;
 }
 
 void QtState::launch()
@@ -210,17 +229,24 @@ int SyncChangeReference::get_height()
 	return height;
 }
 
-bool EGLState::is_supported(intptr_t x11_display) {
+bool EGLState::is_supported(const char *x11_display) {
 	EGLDisplay eglDisplay;
 
-	eglDisplay = eglGetDisplay((EGLNativeDisplayType)x11_display);
+	if (x11_display[0] != ':') {
+		log(LOG_WARN, "DMA-BUF not supported on remote X11 display (%s), disabling DMA-BUF.\n", x11_display);
+		return false;
+	}
+
+	intptr_t x11_display_num = atoi(&x11_display[1]);
+
+	eglDisplay = eglGetDisplay((EGLNativeDisplayType)x11_display_num);
 	if (eglDisplay == EGL_NO_DISPLAY) {
-		log(LOG_DEBUG, "eglGetDisplay failed.\n");
+		log(LOG_INFO, "eglGetDisplay failed, disabling DMA-BUF.\n");
 		return false;
 	}
 
 	if (eglInitialize(eglDisplay, nullptr, nullptr) == EGL_FALSE) {
-		log(LOG_INFO, "EGL is not supported.\n");
+		log(LOG_INFO, "EGL failed to initialize, disabling DMA-BUF.\n");
 		return false;
 	}
 
@@ -244,10 +270,16 @@ bool EGLState::is_supported(intptr_t x11_display) {
 	return true;
 }
 
-EGLState::EGLState(intptr_t x11_display, int window_id, int fd, uint32_t width, uint32_t height, uint16_t stride, uint32_t size, uint32_t format) {
+EGLState::EGLState(const char *x11_display, int window_id, int fd, uint32_t width, uint32_t height, uint16_t stride, uint32_t size, uint32_t format) {
 	int numConfigs = 0;
 
-	log(LOG_DEBUG, "EGLState: %d, %d, %d, %d, %d, %d, %d, %X\n", x11_display, window_id, fd, width, height, stride, size, format);
+	log(LOG_DEBUG, "EGLState: %s, %d, %d, %d, %d, %d, %d, %X\n", x11_display, window_id, fd, width, height, stride, size, format);
+
+	if (x11_display[0] != ':') {
+		throw std::runtime_error("DMA-BUF not supported on remote X11 display.");
+	}
+	
+	intptr_t x11_display_num = atoi(&x11_display[1]);
 
 	this->width = width;
 	this->height = height;
@@ -263,7 +295,7 @@ EGLState::EGLState(intptr_t x11_display, int window_id, int fd, uint32_t width, 
 		EGL_NONE,
 	};
 
-	egl_display = eglGetDisplay((EGLNativeDisplayType)x11_display);
+	egl_display = eglGetDisplay((EGLNativeDisplayType)x11_display_num);
 	if (egl_display == EGL_NO_DISPLAY) {
 		throw std::runtime_error("eglGetDisplay failed");
 	}
@@ -494,8 +526,8 @@ void QtWindow::mousePressEvent(QMouseEvent *event) {
 		return;
 	}
 
-	log(LOG_DEBUG, "mousePressEvent: %d, %d, qt=%d x=%d\n", event->x(), event->y(), event->button(), x_button);
-	qt->get_xrdp_local()->get_xup()->event_mouse_down(event->x(), event->y(), x_button);
+	log(LOG_DEBUG, "mousePressEvent: %d, %d, qt=%d x=%d\n", event->position().x(), event->position().y(), event->button(), x_button);
+	qt->get_xrdp_local()->get_xup()->event_mouse_down(event->position().x(), event->position().y(), x_button);
 }
 
 void QtWindow::mouseReleaseEvent(QMouseEvent *event) {
@@ -505,13 +537,13 @@ void QtWindow::mouseReleaseEvent(QMouseEvent *event) {
 		return;
 	}
 
-	log(LOG_DEBUG, "mouseReleaseEvent: %d, %d, qt=%d x=%d\n", event->x(), event->y(), event->button(), x_button);
-	qt->get_xrdp_local()->get_xup()->event_mouse_up(event->x(), event->y(), x_button);
+	log(LOG_DEBUG, "mouseReleaseEvent: %d, %d, qt=%d x=%d\n", event->position().x(), event->position().y(), event->button(), x_button);
+	qt->get_xrdp_local()->get_xup()->event_mouse_up(event->position().x(), event->position().y(), x_button);
 }
 
 void QtWindow::mouseMoveEvent(QMouseEvent *event) {
-	log(LOG_DEBUG, "mouseMoveEvent: %d, %d\n", event->x(), event->y());
-	qt->get_xrdp_local()->get_xup()->event_mouse_move(event->x(), event->y());
+	log(LOG_DEBUG, "mouseMoveEvent: %d, %d\n", event->position().x(), event->position().y());
+	qt->get_xrdp_local()->get_xup()->event_mouse_move(event->position().x(), event->position().y());
 }
 
 void QtWindow::wheelEvent(QWheelEvent *event) {
@@ -543,7 +575,7 @@ DisplayInfo *QtState::get_display_info()
 {
 	std::vector<display> displays;
 	auto screens = QGuiApplication::screens();
-	for (int i = 0; i < std::min(screens.count(), displays_to_use); i++) {
+	for (int i = 0; i < std::min((int)screens.size(), displays_to_use); i++) {
 		QScreen *screen = screens.at(i);
 		int orientation;
 		// RDP uses degrees for orientation
