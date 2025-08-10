@@ -43,12 +43,6 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 	QT_DISABLE_DEPRECATED_BEFORE=0x060000
 )
 
-# Compiler flags
-target_compile_options(${PROJECT_NAME} PRIVATE
-	-Wno-unused-parameter
-)
-
-# Debug info on debug builds
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
 
 # Optimize release builds with -O3
@@ -78,6 +72,12 @@ target_link_directories(${PROJECT_NAME} PRIVATE ${XRDP_LIB_DIR}/xrdp)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
 	BUILD_RPATH ${XRDP_LIB_DIR}/xrdp
+)
+
+# Compiler flags
+target_compile_options(${PROJECT_NAME} PRIVATE
+	-Wno-unused-parameter
+	-DXRDP_LIB_DIR="${XRDP_LIB_DIR}/xrdp"
 )
 
 target_link_libraries(${PROJECT_NAME}

@@ -21,6 +21,10 @@ extern "C" {
 	#include "parse.h"
 }
 
+#ifndef XRDP_LIB_DIR
+#error "XRDP_LIB_DIR is not defined, use cmake to build the project."
+#endif
+
 int XRDPModState::server_begin_update(struct mod *v) {
 	log(LOG_DEBUG, "server_begin_update\n");
 	return 0;
@@ -358,7 +362,7 @@ XRDPModState::XRDPModState(XRDPLocalState *xrdp_local, QtState *qt, const char *
 	this->socket_path = socket_path;
 	this->qt = qt;
 
-	mod_dl = dlopen("/usr/lib/x86_64-linux-gnu/xrdp/libxup.so", RTLD_NOW);
+	mod_dl = dlopen(XRDP_LIB_DIR "/libxup.so", RTLD_NOW);
 	if (mod_dl == nullptr) {
 		throw std::runtime_error("Failed to open libxup.so.");
 	}
