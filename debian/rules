@@ -19,10 +19,10 @@ override_dh_auto_configure:
 		echo "xrdp version mismatch, expected $$(dpkg-parsechangelog --show-field Version) but installed version is $$(dpkg-query -W -f '$${Version}' xrdp)" >&2; \
 		exit 1; \
 	fi;
-	dh_auto_configure
+	dh_auto_configure "$@"
 
 %:
-	dh $@ --buildsystem=qmake
+	dh $@ --buildsystem=cmake
 
 override_dh_shlibdeps:
 	dh_shlibdeps -- -l/usr/lib/$(DEB_HOST_MULTIARCH)/xrdp

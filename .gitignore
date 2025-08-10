@@ -1,11 +1,27 @@
 # vim temporary files
 *.sw*
 
-# Qt temporary files
+# CMake temporary files
 Makefile
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+obj-*/
+build
+
+# Qt temporary files
 .qmake.*
 moc_qt.cpp
 moc_predefs.h
+.qt
+
+# dpkg-buildpackage temporary files
+debian/files
+debian/.debhelper
+debian/debhelper-build-stamp
+debian/files
+debian/*.log
+debian/*.substvars
 
 # Target and build objects
 xrdp_local
