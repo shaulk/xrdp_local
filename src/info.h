@@ -8,21 +8,7 @@
 
 // Represents a single display as returned by Qt, to be used by xup to inform
 // xorgxrdp of our desired display configuration
-class display {
-public:
-	display(int x, int y, int width, int height, int physical_width, int physical_height, int orientation, int refresh_rate);
-	~display();
-
-	int get_x();
-	int get_y();
-	int get_width();
-	int get_height();
-	int get_physical_width();
-	int get_physical_height();
-	int get_orientation();
-	int get_refresh_rate();
-
-private:
+struct display {
 	int x;
 	int y;
 	int width;
@@ -35,14 +21,7 @@ private:
 
 // Represents the display configuration as returned by Qt, to be used by xup
 // to inform xorgxrdp of our desired display configuration
-class DisplayInfo {
-public:
-	DisplayInfo(std::vector<display> displays);
-	~DisplayInfo();
-
-	std::vector<display> get_displays();
-
-private:
+struct display_info {
 	std::vector<display> displays;
 };
 

@@ -16,7 +16,6 @@ set(SOURCES
 	src/qt.cpp
 	src/xrdp_local.cpp
 	src/xup.cpp
-	src/info.cpp
 )
 
 set(HEADERS

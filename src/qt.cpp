@@ -571,9 +571,9 @@ XRDPLocalState *QtState::get_xrdp_local()
 	return xrdp_local;
 }
 
-DisplayInfo *QtState::get_display_info()
+std::unique_ptr<struct display_info> QtState::get_display_info()
 {
-	std::vector<display> displays;
+	std::unique_ptr<struct display_info> display_info = std::make_unique<struct display_info>();
 	auto screens = QGuiApplication::screens();
 	for (int i = 0; i < std::min((int)screens.size(), displays_to_use); i++) {
 		QScreen *screen = screens.at(i);
@@ -596,9 +596,18 @@ DisplayInfo *QtState::get_display_info()
 				log(LOG_WARN, "Unknown screen orientation: %d\n", screen->orientation());
 				orientation = 0;
 		}
-		displays.push_back(display(screen->geometry().x(), screen->geometry().y(), screen->geometry().width(), screen->geometry().height(), orientation, screen->physicalSize().width(), screen->physicalSize().height(), screen->refreshRate()));
+		display_info->displays.push_back({
+			.x = screen->geometry().x(),
+			.y = screen->geometry().y(),
+			.width = screen->geometry().width(),
+			.height = screen->geometry().height(),
+			.physical_width = screen->physicalSize().width(),
+			.physical_height = screen->physicalSize().height(),
+			.orientation = orientation,
+			.refresh_rate = screen->refreshRate()
+		});
 	}
-	return new DisplayInfo(displays);
+	return display_info;
 }
 
 

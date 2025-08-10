@@ -17,6 +17,7 @@
 #include <GL/gl.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
+#include <memory>
 
 #include "xrdp_local.h"
 #include "info.h"
@@ -187,7 +188,7 @@ public:
 	void exit();
 
 	// Returns display info from Qt
-	DisplayInfo *get_display_info();
+	std::unique_ptr<struct display_info> get_display_info();
 
 	// Getters
 	XRDPLocalState *get_xrdp_local();

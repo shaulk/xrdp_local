@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <fcntl.h>
+#include <memory>
 
 // Our xup.h
 #include "xup.h"
@@ -452,7 +453,7 @@ void XRDPModState::setup_xup_functions() {
 }
 
 void XRDPModState::setup_xup_client_info() {
-	DisplayInfo *display_info = qt->get_display_info();
+	auto display_info = qt->get_display_info();
 	memset(&client_info, 0, sizeof(client_info));
 	client_info.size = sizeof(client_info);
 	client_info.version = CLIENT_INFO_CURRENT_VERSION;
@@ -480,25 +481,24 @@ void XRDPModState::setup_xup_client_info() {
 	client_info.display_sizes.session_width = 1;
 	client_info.display_sizes.session_height = 1;
 
-	auto displays = display_info->get_displays();
-	client_info.display_sizes.monitorCount = std::min((int)displays.size(), CLIENT_MONITOR_DATA_MAXIMUM_MONITORS);
+	client_info.display_sizes.monitorCount = std::min((int)display_info->displays.size(), CLIENT_MONITOR_DATA_MAXIMUM_MONITORS);
 
 	// Sane default for ~60 fps
 	client_info.normal_frame_interval = 16;
 
 	for (unsigned int i = 0; i < client_info.display_sizes.monitorCount; i++) {
-		auto display = displays[i];
-		client_info.display_sizes.minfo[i].left = display.get_x();
-		client_info.display_sizes.minfo[i].top = display.get_y();
+		auto display = display_info->displays[i];
+		client_info.display_sizes.minfo[i].left = display.x;
+		client_info.display_sizes.minfo[i].top = display.y;
 
 		// These specify the actual bottom and right pixel numbers, so the -1 is
 		// not an error
-		client_info.display_sizes.minfo[i].right = display.get_x() + display.get_width() - 1;
-		client_info.display_sizes.minfo[i].bottom = display.get_y() + display.get_height() - 1;
+		client_info.display_sizes.minfo[i].right = display.x + display.width - 1;
+		client_info.display_sizes.minfo[i].bottom = display.y + display.height - 1;
 
-		client_info.display_sizes.minfo[i].physical_width = display.get_physical_width();
-		client_info.display_sizes.minfo[i].physical_height = display.get_physical_height();
-		client_info.display_sizes.minfo[i].orientation = display.get_orientation();
+		client_info.display_sizes.minfo[i].physical_width = display.physical_width;
+		client_info.display_sizes.minfo[i].physical_height = display.physical_height;
+		client_info.display_sizes.minfo[i].orientation = display.orientation;
 
 		client_info.display_sizes.minfo[i].desktop_scale_factor = 100;
 		client_info.display_sizes.minfo[i].device_scale_factor = 100;
@@ -510,7 +510,7 @@ void XRDPModState::setup_xup_client_info() {
 		client_info.display_sizes.session_height = std::max((int)client_info.display_sizes.session_height, client_info.display_sizes.minfo[i].bottom + 1);
 
 		// Update the frame interval using the lowest refresh rate of all displays
-		client_info.normal_frame_interval = std::min(client_info.normal_frame_interval, (int)(1000 / display.get_refresh_rate()));
+		client_info.normal_frame_interval = std::min(client_info.normal_frame_interval, (int)(1000 / display.refresh_rate));
 	}
 
 	// Set the client description to the name of the application
@@ -522,13 +522,12 @@ void XRDPModState::setup_xup_client_info() {
 void XRDPModState::setup_xup_mod() {
 	setup_xup_client_info();
 	setup_xup_functions();
-	DisplayInfo *display_info = qt->get_display_info();
-	auto displays = display_info->get_displays();
-	if (displays.size() < 1) {
+	auto display_info = qt->get_display_info();
+	if (display_info->displays.size() < 1) {
 		throw std::runtime_error("No displays found.");
 	}
-	int initial_width = displays[0].get_width();
-	int initial_height = displays[0].get_height();
+	int initial_width = display_info->displays[0].width;
+	int initial_height = display_info->displays[0].height;
 	log(LOG_DEBUG, "Setting up xup with initial size %dx%d\n", initial_width, initial_height);
 	if (xup_mod->mod_start(xup_mod, initial_width, initial_height, 32) != 0) {
 		throw std::runtime_error("Failed to start xup mod.");
