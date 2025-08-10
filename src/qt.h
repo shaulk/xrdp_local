@@ -14,6 +14,9 @@
 #include <QTimer>
 #include <QMouseEvent>
 #include <QWheelEvent>
+#include <GL/gl.h>
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
 
 #include "xrdp_local.h"
 #include "info.h"
@@ -59,6 +62,56 @@ private:
 
 class QtState;
 
+// This is the EGL state for the window, if DMA-BUF is enabled, this will keep
+// a reference to the pixmap used by the X server to maintain the screen state,
+// so it can be displayed without having to copy the data from the GPU and back.
+class EGLState {
+public:
+	EGLState(
+		intptr_t x11_display,
+		int window_id,
+		int fd,
+		uint32_t width,
+		uint32_t height,
+		uint16_t stride,
+		uint32_t size,
+		uint32_t format
+	);
+	~EGLState();
+
+	// Render the shared texture to the screen
+	void render();
+
+	// Check if EGL is supported on the given display
+	static bool is_supported(intptr_t x11_display);
+
+private:
+	// Import a DMA-BUF image reference into our EGL state using
+	// EGL_EXT_image_dma_buf_import
+	void import_dma_buf_fd(int fd,
+		uint32_t width,
+		uint32_t height,
+		uint16_t stride,
+		uint32_t size,
+		uint32_t format
+	);
+
+	// Set up global GL state AFTER loading the shared pixmap
+	void setup_gl_state();
+
+	// EGL state
+	EGLDisplay egl_display = EGL_NO_DISPLAY;
+	EGLConfig egl_config = EGL_NO_CONFIG_KHR;
+	EGLContext egl_context = EGL_NO_CONTEXT;
+	EGLSurface egl_surface = EGL_NO_SURFACE;
+	EGLImageKHR egl_image = EGL_NO_IMAGE_KHR;
+	GLuint texture = 0;
+
+	// The size of the shared pixmap
+	int width;
+	int height;
+};
+
 // This is the main window that displays all screens
 // There is just one and it's as big as the theoretical rectangle that contains
 // all screens.
@@ -67,9 +120,11 @@ class QtWindow : public QWidget
 	Q_OBJECT
 
 public slots:
-	// This is called by the QtState thread to paint a rectangle
-	// It's connected to QtState::paint_rect_signal and used to allow the xup
-	// thread to paint a rectangle.
+	// This is called by the QtState thread to paint a rectangle.
+	// It's connected to QtState::paint_rect_signal and used to allow the
+	// xup thread to paint a rectangle.
+	// When using DMA-BUF, this is skipped and paint_dma_buf (which calls
+	// EGLState::render) is used instead.
 	void paint_rects_slot(SyncChangeReference *change, int x, int y);
 
 public:
@@ -91,6 +146,8 @@ public:
 	void keyPressEvent(QKeyEvent *event);
 	void keyReleaseEvent(QKeyEvent *event);
 
+	void set_disable_paint(bool disable_paint);
+
 private:
 	QtState *qt;
 
@@ -111,7 +168,7 @@ class QtState : public QObject
 public:
 	// max_displays can be used to limit the number of displays that are allowed
 	// The application defaults to using all available displays
-	QtState(XRDPLocalState *xrdp_local, int max_displays);
+	QtState(XRDPLocalState *xrdp_local, int max_displays, bool use_dma_buf);
 	~QtState();
 
 	// This is called by the xup client thread to paint screen data
@@ -135,14 +192,22 @@ public:
 	// Getters
 	XRDPLocalState *get_xrdp_local();
 
+	// DMA-BUF management functions
+	bool enable_dma_buf(int fd, uint32_t width, uint32_t height, uint16_t stride, uint32_t size, uint32_t format);
+	void disable_dma_buf();
+	void paint_dma_buf();
+
 signals:
 	// Used to trigger QtWindow::paint_rect_slot
 	void paint_rects_signal(SyncChangeReference *change, int x, int y);
 
 private:
+	int x11_display();
+
 	// The maximum number of displays to use
 	int max_displays;
 	int displays_to_use;
+	bool use_dma_buf;
 
 	// The width and height of the rectangle that contains all screens
 	int full_width;
@@ -153,6 +218,9 @@ private:
 
 	// The main window that shows all displays
 	QtWindow *window;
+
+	// The EGL state for the window, if DMA-BUF is enabled
+	EGLState *egl = nullptr;
 
 	// The global state of the application
 	XRDPLocalState *xrdp_local;

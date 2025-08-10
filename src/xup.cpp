@@ -1,8 +1,13 @@
 #include <stdexcept>
 #include <string.h>
+#include <stdint.h>
 #include <dlfcn.h>
+#include <link.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <fcntl.h>
 
 // Our xup.h
 #include "xup.h"
@@ -13,6 +18,7 @@ extern "C" {
 	// Headers from xrdp
 	#include "log.h"
 	#include "trans.h"
+	#include "parse.h"
 }
 
 int XRDPModState::server_begin_update(struct mod *v) {
@@ -257,6 +263,51 @@ int XRDPModState::server_paint_rects(struct mod *v,
 	throw std::runtime_error("server_paint_rects is not implemented.");
 }
 
+int XRDPModState::server_dma_buf_notify(struct mod *v,
+						enum dma_buf_server_notify state) {
+	log(LOG_DEBUG, "server_dma_buf_notify: %d\n", state);
+	return 0;
+}
+
+int XRDPModState::server_dma_buf_receive_pixmap_fd(struct mod *v,
+							int fd, uint32_t width,
+							uint32_t height, uint16_t stride,
+							uint32_t size, uint32_t format) {
+	log(LOG_DEBUG, "server_dma_buf_receive_pixmap_fd: %d, %d, %d, %d, %d, %X\n", fd, width, height, stride, size, format);
+
+	XRDPModState *xrdp_mod_state = xrdp_mod_state_from_mod(v);
+	if (!xrdp_mod_state->qt->enable_dma_buf(fd, width, height, stride, size, format)) {
+		log(LOG_ERROR, "Failed to enable DMA buf.\n");
+		v->mod_send_dma_buf_notify(v, DMA_BUF_NOTIFY_INACTIVE);
+		return 0;
+	}
+
+	log(LOG_INFO, "DMA-BUF enabled.\n");
+
+	v->mod_send_dma_buf_notify(v, DMA_BUF_NOTIFY_ACTIVE);
+
+	return 0;
+}
+
+int XRDPModState::server_dma_buf_deactivate(struct mod *v) {
+	log(LOG_DEBUG, "server_dma_buf_deactivate\n");
+
+	XRDPModState *xrdp_mod_state = xrdp_mod_state_from_mod(v);
+	xrdp_mod_state->qt->disable_dma_buf();
+
+	log(LOG_INFO, "DMA-BUF disabled.\n");
+
+	return 0;
+}
+
+int XRDPModState::server_dma_buf_paint_pixmap(struct mod *v) {
+	log(LOG_DEBUG, "server_dma_buf_paint_pixmap\n");
+	XRDPModState *xrdp_mod_state = xrdp_mod_state_from_mod(v);
+	xrdp_mod_state->qt->paint_dma_buf();
+	log(LOG_DEBUG, "server_dma_buf_paint_pixmap done\n");
+	return 0;
+}
+
 int XRDPModState::server_session_info(struct mod *v, const char *data,
 						int data_bytes) {
 	throw std::runtime_error("server_session_info is not implemented.");
@@ -326,6 +377,8 @@ XRDPModState::XRDPModState(XRDPLocalState *xrdp_local, QtState *qt, const char *
 	// wm is a pointer that is used by xrdp to store the upper layer state, so we can use it to do the same
 	xup_mod->wm = (tintptr)this;
 
+	check_dma_buf_supported_in_libxup();
+
 	setup_xup_mod();
 }
 
@@ -388,6 +441,10 @@ void XRDPModState::setup_xup_functions() {
 	xup_mod->server_set_pointer_large = server_set_pointer_large;
 	xup_mod->server_paint_rects_ex = server_paint_rects_ex;
 	xup_mod->server_egfx_cmd = server_egfx_cmd;
+	xup_mod->server_dma_buf_notify = server_dma_buf_notify;
+	xup_mod->server_dma_buf_receive_pixmap_fd = server_dma_buf_receive_pixmap_fd;
+	xup_mod->server_dma_buf_deactivate = server_dma_buf_deactivate;
+	xup_mod->server_dma_buf_paint_pixmap = server_dma_buf_paint_pixmap;
 }
 
 void XRDPModState::setup_xup_client_info() {
@@ -412,6 +469,8 @@ void XRDPModState::setup_xup_client_info() {
 
 	// This one is the fastest for xorgxrdp, because xorg uses it internally so xorgxrdp just does memcpy
 	client_info.capture_format = XRDP_a8r8g8b8;
+
+	client_info.capture_code = CC_SIMPLE;
 
 	// Default to some sane values
 	client_info.display_sizes.session_width = 1;
@@ -484,6 +543,40 @@ void XRDPModState::setup_xup_mod() {
 	}
 	xup_communicator_thread = std::thread(&XRDPModState::xup_communicator_thread_func, this);
 	log(LOG_INFO, "Connected to X server.\n");
+}
+
+int XRDPModState::dma_buf_supported_in_libxup_callback(struct dl_phdr_info *info, size_t size, void *data) {
+	XRDPModState *mod_state = (XRDPModState *)data;
+	if (info->dlpi_name != nullptr && strstr(info->dlpi_name, "libxup.so") != nullptr) {
+		for (int i = 0; i < info->dlpi_phnum; i++) {
+			if (info->dlpi_phdr[i].p_type == PT_LOAD) {
+				uint8_t *start = (uint8_t *)(info->dlpi_addr + info->dlpi_phdr[i].p_vaddr);
+				size_t size = info->dlpi_phdr[i].p_memsz;
+				log(LOG_DEBUG, "Checking for mod_send_dma_buf_notify %p in %s at %p %p\n", mod_state->xup_mod->mod_send_dma_buf_notify, info->dlpi_name, start, start + size);
+				if (mod_state->xup_mod->mod_send_dma_buf_notify != nullptr && mod_state->xup_mod->mod_send_dma_buf_notify >= (void *)start && mod_state->xup_mod->mod_send_dma_buf_notify < (void *)(start + size)) {
+					mod_state->dma_buf_supported_in_libxup = 1;
+					return 1;
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+void XRDPModState::check_dma_buf_supported_in_libxup() {
+	// libxup doesn't zero out its struct in init, so in unsupported versions
+	// the DMA-BUF pointers are garbage. We check if they actually point to
+	// somewhere in the libxup binary.
+	dl_iterate_phdr(dma_buf_supported_in_libxup_callback, this);
+	log(LOG_DEBUG, "DMA-BUF supported in libxup: %d\n", dma_buf_supported_in_libxup);
+}
+
+void XRDPModState::request_dma_buf() {
+	if (!dma_buf_supported_in_libxup) {
+		log(LOG_DEBUG, "DMA-BUF not supported in libxup, ignoring request to enable it.\n");
+		return;
+	}
+	do_request_dma_buf = 1;
 }
 
 void XRDPModState::xup_communicator_thread_func() {
@@ -679,5 +772,10 @@ void XRDPModState::process_xrdp_events() {
 		if (xup_mod->mod_event != nullptr) {
 			xup_mod->mod_event(xup_mod, event.msg, event.param1, event.param2, event.param3, event.param4);
 		}
+	}
+	if (do_request_dma_buf) {
+		do_request_dma_buf = 0;
+		log(LOG_DEBUG, "Sending DMA_BUF_REQUEST_ACTIVATE\n");
+		xup_mod->mod_send_dma_buf_notify(xup_mod, DMA_BUF_REQUEST_ACTIVATE);
 	}
 }

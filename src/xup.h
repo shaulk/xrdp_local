@@ -9,6 +9,7 @@
 extern "C" {
 	#include "mock_config_ac.h"
 	#include "xup/xup.h"
+	#include <xrdp_client_info.h>
 }
 
 #include <thread>
@@ -62,6 +63,8 @@ private:
 	// Queue of xrdp events we need to send using mod_event
 	std::queue<xrdp_event> xrdp_events;
 
+	int do_request_dma_buf = 0;
+
 	// Enqueue an xrdp event to be processed by process_xrdp_events
 	void enqueue_xrdp_event(int msg, tbus param1, tbus param2, tbus param3, tbus param4);
 
@@ -81,6 +84,12 @@ private:
 	void xup_communicator_thread_func();
 	std::thread xup_communicator_thread;
 	int running = 1;
+
+	// Heuristic to check if libxup is compiled with our DMA-BUF patch.
+	// This can be removed if it gets upstreamed.
+	int dma_buf_supported_in_libxup = 0;
+	static int dma_buf_supported_in_libxup_callback(struct dl_phdr_info *info, size_t size, void *data);
+	void check_dma_buf_supported_in_libxup();
 
 	// Synchonizes communication on the xup socket
 	std::mutex xup_communicator_mutex;
@@ -248,6 +257,15 @@ private:
 						char *cmd, int cmd_bytes,
 						char *data, int data_bytes);
 
+	static int server_dma_buf_notify(struct mod *v,
+							enum dma_buf_server_notify state);
+	static int server_dma_buf_receive_pixmap_fd(struct mod *v,
+							int fd, uint32_t width,
+							uint32_t height, uint16_t stride,
+							uint32_t size, uint32_t format);
+	static int server_dma_buf_deactivate(struct mod *v);
+	static int server_dma_buf_paint_pixmap(struct mod *v);
+
 public:
 	XRDPModState(XRDPLocalState *xrdp_local, QtState *qt, const char *socket_path);
 	~XRDPModState();
@@ -260,6 +278,8 @@ public:
 	void event_scroll_vertical(int x, int y, int direction);
 	void key_down(int scan_code);
 	void key_up(int scan_code);
+
+	void request_dma_buf();
 };
 
 // Helper function to get the XRDPModState from the xup module reference
