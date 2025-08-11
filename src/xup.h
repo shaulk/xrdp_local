@@ -16,7 +16,7 @@ extern "C" {
 #include <mutex>
 #include <queue>
 
-#include "qt.h"
+#include "qt/state.h"
 
 // These are private in xrdp, but we need them for the xup client module
 typedef intptr_t tbus;

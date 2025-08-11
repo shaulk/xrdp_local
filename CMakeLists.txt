@@ -5,22 +5,15 @@ project(xrdp_local LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Enable automatic MOC, UIC, and RCC for Qt
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTOUIC ON)
-set(CMAKE_AUTORCC ON)
-
 # Set the source and header files
 set(SOURCES
 	src/common.cpp
-	src/qt.cpp
 	src/xrdp_local.cpp
 	src/xup.cpp
 )
 
 set(HEADERS
 	src/common.h
-	src/qt.h
 	src/xrdp_local.h
 	src/xup.h
 	src/info.h
@@ -29,7 +22,7 @@ set(HEADERS
 
 # Add include directories
 include_directories(
-	.
+	./src
 	./xrdp
 	./xrdp/common
 )
@@ -50,17 +43,8 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 # Find PkgConfig
 find_package(PkgConfig REQUIRED)
 
-# Find Qt6
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
-
 # Find argparse
 find_package(argparse REQUIRED)
-
-# Find X11
-pkg_check_modules(X11 REQUIRED x11)
-
-# Find EGL
-pkg_check_modules(EGL REQUIRED egl)
 
 # xrdp doesn't declare a libdir because it doesn't expect other binaries to link
 # against its libraries, so we extract its libdir from pkg-config
@@ -79,13 +63,11 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 	-DXRDP_LIB_DIR="${XRDP_LIB_DIR}/xrdp"
 )
 
+add_subdirectory(src/qt)
+
 target_link_libraries(${PROJECT_NAME}
-	Qt6::Core
-	Qt6::Gui
-	Qt6::Widgets
-	EGL
-	X11
+	qt
+
 	xup
 	common
 )
-

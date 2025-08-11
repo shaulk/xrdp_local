@@ -4,7 +4,7 @@
 // Main application class
 
 #include "xup.h"
-#include "qt.h"
+#include "qt/state.h"
 
 class QtState;
 class XRDPModState;

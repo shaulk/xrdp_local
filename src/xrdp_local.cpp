@@ -5,7 +5,7 @@
 #include "common.h"
 #include "xrdp_local.h"
 #include "xup.h"
-#include "qt.h"
+#include "qt/state.h"
 
 XRDPLocalState::XRDPLocalState(const char *socket_path, int feedback_fd, int max_displays, bool use_dma_buf) {
 	this->feedback_fd = feedback_fd;
