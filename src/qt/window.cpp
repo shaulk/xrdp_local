@@ -5,51 +5,25 @@
 
 SyncChangeReference::SyncChangeReference(int width, int height, unsigned char *input_data, int num_rects, xrdp_rect_spec *rects) : release_latch(1)
 {
- #ifdef USE_COPIES
-	uint64_t size = width * height * 4;
-	this->data = (unsigned char *)malloc(size);
-	if (this->data == nullptr) {
-		log(LOG_ERROR, "malloc failed: %s\n", strerror(errno));
-		throw std::runtime_error("malloc failed");
-	}
-	this->rects = (xrdp_rect_spec *)malloc(num_rects * sizeof(xrdp_rect_spec));
-	if (this->rects == nullptr) {
-		log(LOG_ERROR, "malloc failed: %s\n", strerror(errno));
-		free(this->data);
-		throw std::runtime_error("malloc failed");
-	}
-	memcpy(this->data, input_data, size);
-	memcpy(this->rects, rects, num_rects * sizeof(xrdp_rect_spec));
-#endif
 	this->width = width;
 	this->height = height;
 	this->num_rects = num_rects;
-#ifdef USE_BORROWS
 	this->data = input_data;
 	this->rects = rects;
-#endif
 }
 
 SyncChangeReference::~SyncChangeReference()
 {
-#ifdef USE_COPIES
-	free(data);
-	free(rects);
-#endif
 }
 
 void SyncChangeReference::signal_data_is_not_used()
 {
-#ifdef USE_BORROWS
 	release_latch.count_down();
-#endif
 }
 
 void SyncChangeReference::block_until_data_is_not_used()
 {
-#ifdef USE_BORROWS
 	release_latch.wait();
-#endif
 }
 
 unsigned char *SyncChangeReference::get_data()
@@ -117,12 +91,7 @@ void QtWindow::paint_rects_slot(SyncChangeReference *change, int x, int y)
 		log(LOG_ERROR, "paint_rect_slot caught exception: %s\n", e.what());
 		qt->exit();
 	}
-#ifdef USE_COPIES
-	delete change;
-#endif
-#ifdef USE_BORROWS
 	change->signal_data_is_not_used();
-#endif
 }
 
 void QtWindow::paintEvent(QPaintEvent *event) {

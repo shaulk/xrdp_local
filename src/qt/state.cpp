@@ -109,15 +109,9 @@ void QtState::paint_rects(int x, int y, unsigned char *data, int srcx, int srcy,
 	if (srcx != 0 || srcy != 0) {
 		throw std::runtime_error("srcx and srcy must be 0");
 	}
- #ifdef USE_COPIES
-	SyncChangeReference *change = new SyncChangeReference(width, height, data, num_rects, rects);
-	emit paint_rects_signal(change, x, y);
-#endif
-#ifdef USE_BORROWS
 	SyncChangeReference change = SyncChangeReference(width, height, data, num_rects, rects);
 	emit paint_rects_signal(&change, x, y);
 	change.block_until_data_is_not_used();
-#endif
 }
 
 void QtState::set_cursor(int x, int y, unsigned char *data, unsigned char *mask, int width, int height, int bpp)

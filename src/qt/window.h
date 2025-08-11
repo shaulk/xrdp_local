@@ -12,14 +12,6 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 
-// Choose between two implementations of moving screen data from xup to Qt
-// USE_COPIES mallocs new buffers, copies the data and returns to xup
-// immediately.
-// USE_BORROWS blocks the xup client thread until Qt finishes drawing and gives
-// Qt a borrowed pointer to the data.
-// #define USE_COPIES
-#define USE_BORROWS
-
 class QtState;
 
 // Used to move screen data between the xup client thread and the qt thread
@@ -54,8 +46,7 @@ private:
 
 	// This latch is used to prevent SyncChangeReference from never being
 	// freed (by the paint_rect_signal leading to nowhere before the app is
-	// properly initialized), which causes hangs (with USE_BORROWS) or memory
-	// leaks (with USE_COPIES).
+	// properly initialized), which causes hangs.
 	std::latch release_latch;
 };
 
