@@ -18,8 +18,6 @@
 extern "C" {
 	// Headers from xrdp
 	#include "log.h"
-	#include "trans.h"
-	#include "parse.h"
 }
 
 #ifndef XRDP_LIB_DIR
@@ -585,9 +583,8 @@ void XRDPModState::request_dma_buf() {
 void XRDPModState::xup_communicator_thread_func() {
 	log(LOG_DEBUG, "xup_communicator_thread_func started.\n");
 	while (running) {
-//		log(LOG_DEBUG, "xup_communicator_thread_func loop.\n");
 		xup_communicator_mutex.lock();
-		if (trans_check_wait_objs(xup_mod->trans) != 0) {
+		if (xup_mod->mod_check_wait_objs(xup_mod) != 0) {
 			log(LOG_ERROR, "xup_mod->trans closed connection.\n");
 			xup_communicator_mutex.unlock();
 			qt->exit();
