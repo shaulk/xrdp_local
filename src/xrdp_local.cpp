@@ -7,10 +7,10 @@
 #include "xup.h"
 #include "qt/state.h"
 
-XRDPLocalState::XRDPLocalState(const char *socket_path, int feedback_fd, int max_displays, bool use_dma_buf) {
+XRDPLocalState::XRDPLocalState(const char *socket_path, int feedback_fd, int max_displays, bool use_dma_buf, bool xrdp_log_debug) {
 	this->feedback_fd = feedback_fd;
 	qt = new QtState(this, max_displays, use_dma_buf);
-	xup = new XRDPModState(this, qt, socket_path);
+	xup = new XRDPModState(this, qt, socket_path, xrdp_log_debug);
 	notify_feedback_fd("connected");
 	qt->launch();
 }
@@ -73,7 +73,13 @@ int main(int argc, char *argv[]) {
 
 	set_log_level(program.get<bool>("-v") ? LOG_DEBUG : LOG_INFO);
 
-	XRDPLocalState state(program.get<std::string>("socket-path").c_str(), program.get<int>("feedback-fd"), program.get<int>("--max-displays"), program.get<bool>("--disable-dma-buf"));
+	XRDPLocalState state(
+		program.get<std::string>("socket-path").c_str(),
+		program.get<int>("feedback-fd"),
+		program.get<int>("--max-displays"),
+		program.get<bool>("--disable-dma-buf"),
+		program.get<bool>("-v")
+	);
 
 	state.qt->run();
 

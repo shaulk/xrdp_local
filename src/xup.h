@@ -47,6 +47,9 @@ private:
 	// The path to the socket that xorgxrdp listens on
 	const char *socket_path;
 
+	// The xrdp logger config (which they malloc and return, so we need to free)
+	struct log_config *xrdp_log_config = nullptr;
+
 	// The xup module reference as initialized by mod_init
 	struct mod *xup_mod;
 
@@ -267,7 +270,7 @@ private:
 	static int server_dma_buf_paint_pixmap(struct mod *v);
 
 public:
-	XRDPModState(XRDPLocalState *xrdp_local, QtState *qt, const char *socket_path);
+	XRDPModState(XRDPLocalState *xrdp_local, QtState *qt, const char *socket_path, bool xrdp_log_debug);
 	~XRDPModState();
 
 	// Event handlers called by the Qt client

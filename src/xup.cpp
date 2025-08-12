@@ -354,8 +354,10 @@ XRDPModState *xrdp_mod_state_from_mod(struct mod *mod) {
 	return (XRDPModState *)mod->wm;
 }
 
-XRDPModState::XRDPModState(XRDPLocalState *xrdp_local, QtState *qt, const char *socket_path) {
-	log_start_from_param(log_config_init_for_console(LOG_LEVEL_DEBUG, "xrdp_local"));
+XRDPModState::XRDPModState(XRDPLocalState *xrdp_local, QtState *qt, const char *socket_path, bool xrdp_log_debug) {
+	xrdp_log_config = log_config_init_for_console(xrdp_log_debug ? LOG_LEVEL_DEBUG : LOG_LEVEL_INFO, nullptr);
+	log(LOG_INFO, "xrdp_log_config: %d\n", xrdp_log_config->console_level);
+	log_start_from_param(xrdp_log_config);
 
 	this->xrdp_local = xrdp_local;
 	this->socket_path = socket_path;
@@ -391,6 +393,7 @@ XRDPModState::~XRDPModState() {
 	mod_exit(xup_mod);
 	dlclose(mod_dl);
 	log_end();
+	log_config_free(xrdp_log_config);
 }
 
 void XRDPModState::setup_xup_functions() {

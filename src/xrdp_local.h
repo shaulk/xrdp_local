@@ -35,7 +35,13 @@ private:
 	void notify_feedback_fd(const char *msg);
 
 public:
-	XRDPLocalState(const char *socket_path, int feedback_fd, int max_displays, bool use_dma_buf);
+	XRDPLocalState(
+		const char *socket_path,
+		int feedback_fd,
+		int max_displays,
+		bool use_dma_buf,
+		bool xrdp_log_debug
+	);
 	~XRDPLocalState();
 
 	// Getters
