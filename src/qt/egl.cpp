@@ -42,7 +42,7 @@ bool EGLState::is_supported(const char *x11_display) {
 		return false;
 	}
 
-	log(LOG_INFO, "EGL is supported by system and environment, enabling DMA-BUF.\n");
+	log(LOG_INFO, "DMA-BUF acceleration is supported by xrdp and our environment, trying to enable...\n");
 	return true;
 }
 

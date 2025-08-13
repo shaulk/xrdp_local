@@ -269,6 +269,9 @@ int XRDPModState::server_paint_rects(struct mod *v,
 int XRDPModState::server_dma_buf_notify(struct mod *v,
 						enum dma_buf_server_notify state) {
 	log(LOG_DEBUG, "server_dma_buf_notify: %d\n", state);
+	if (state == DMA_BUF_NOT_SUPPORTED) {
+		log(LOG_WARN, "The Xorg server running xorgxrdp informed us that DMA-BUF is not supported. See Xorg server log for more information.\n");
+	}
 	return 0;
 }
 
