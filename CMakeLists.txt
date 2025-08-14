@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
 project(xrdp_local LANGUAGES CXX)
 
+if(NOT CMAKE_BUILD_TYPE)
+	set(CMAKE_BUILD_TYPE Debug)
+endif()
+
 # Set C++20 standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -30,15 +34,13 @@ include_directories(
 # Add executable
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
-# Make sure we don't accidentally use deprecated Qt APIs
-target_compile_definitions(${PROJECT_NAME} PRIVATE
-	QT_DISABLE_DEPRECATED_BEFORE=0x060000
-)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-unused-parameter")
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
 
 # Optimize release builds with -O3
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Werror")
+
 
 # Find PkgConfig
 find_package(PkgConfig REQUIRED)

@@ -19,7 +19,7 @@ override_dh_auto_configure:
 		echo "xrdp version mismatch, expected $$(dpkg-parsechangelog --show-field Version) but installed version is $$(dpkg-query -W -f '$${Version}' xrdp)" >&2; \
 		exit 1; \
 	fi;
-	dh_auto_configure "$@"
+	dh_auto_configure "$@" -- -DCMAKE_BUILD_TYPE=Release
 
 %:
 	dh $@ --buildsystem=cmake

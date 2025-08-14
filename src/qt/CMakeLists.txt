@@ -15,6 +15,18 @@ add_library(qt STATIC
 	egl.h
 )
 
+# Make sure we don't accidentally use deprecated Qt APIs
+target_compile_definitions(qt PRIVATE
+	QT_DISABLE_DEPRECATED_BEFORE=0x060000
+)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+	# We compile with -Werror, so disable deprecation warnings in release builds
+	target_compile_definitions(qt PRIVATE
+		QT_NO_DEPRECATED_WARNINGS
+	)
+endif()
+
 include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${CMAKE_CURRENT_SOURCE_DIR}/..
