@@ -73,3 +73,8 @@ target_link_libraries(${PROJECT_NAME}
 	xup
 	common
 )
+# cmake strips rpath on install by default, so add it explicitly
+set_target_properties(${PROJECT_NAME} PROPERTIES
+	INSTALL_RPATH "${XRDP_LIB_DIR}/xrdp"
+)
+install(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
