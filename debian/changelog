@@ -1,5 +1,5 @@
 xrdp_local (0.10.4-1ubuntu1) UNRELEASED; urgency=medium
 
-  * Initial release. (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+  * Initial release.
 
  -- Shaul <shaulk@users.noreply.github.com>  Fri, 11 Jul 2025 02:32:38 +0300

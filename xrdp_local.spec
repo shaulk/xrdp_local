@@ -4,7 +4,7 @@ Release:        1%{?dist}
 Summary:        XRDP local client application
 
 License:        Apache 2.0
-URL:            https://example.org/xrdp_local
+URL:            https://github.com/shaulk/xrdp_local
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  cmake
@@ -18,7 +18,9 @@ Requires:       xrdp = 1:%{version}
 Requires:       xorgxrdp-glamor >= 0.10.4
 
 %description
-xrdp_local is a client application for XRDP, built with Qt6 and libargparse.
+xrdp_local allows you to connect to local xrdp sessions without using RDP,
+in effect letting you switch your xrdp session between using the local hardware
+normally and connecting remotely using RDP.
 
 %prep
 %setup -q
