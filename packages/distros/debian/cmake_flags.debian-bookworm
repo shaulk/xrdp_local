@@ -1,0 +1,1 @@
+-DCMAKE_CXX_FLAGS=--param=max-inline-insns-single=100

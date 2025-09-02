@@ -1,0 +1,13 @@
+FROM ubuntu:plucky
+
+RUN apt-get update && \
+	DEBIAN_FRONTEND=noninteractive apt-get install -y \
+		dpkg-dev \
+		debhelper-compat \
+		pkg-config \
+		cmake \
+		lsb-release \
+		qt6-base-dev \
+		libargparse-dev \
+		libegl1-mesa-dev \
+		xrdp

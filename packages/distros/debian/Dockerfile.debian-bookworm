@@ -1,0 +1,25 @@
+FROM debian:bookworm
+
+RUN apt-get update && \
+	DEBIAN_FRONTEND=noninteractive apt-get install -y \
+		dpkg-dev \
+		debhelper-compat \
+		pkg-config \
+		cmake \
+		lsb-release \
+		qt6-base-dev \
+		libegl1-mesa-dev \
+		libfuse3-3 \
+		git \
+		xrdp
+
+RUN git clone -b v3.0 https://github.com/p-ranav/argparse.git && \
+	cd argparse && \
+	mkdir build && \
+	cd build && \
+	cmake .. -DCMAKE_INSTALL_PREFIX=/usr && \
+	make -j $(nproc) && \
+	make install && \
+	ldconfig && \
+	cd .. && \
+	rm -rf argparse

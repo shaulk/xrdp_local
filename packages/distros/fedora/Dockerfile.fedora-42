@@ -1,0 +1,10 @@
+FROM fedora:42
+
+RUN dnf install -y \
+		rpm-build \
+		cmake \
+        gcc-c++ \
+		pkg-config \
+		qt6-qtbase-devel \
+		argparse-devel \
+        xrdp
