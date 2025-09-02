@@ -15,7 +15,7 @@ bool EGLState::is_supported(const char *x11_display) {
 
 	intptr_t x11_display_num = atoi(&x11_display[1]);
 
-	eglDisplay = eglGetDisplay((EGLNativeDisplayType)x11_display_num);
+	eglDisplay = eglGetDisplay(reinterpret_cast<EGLNativeDisplayType>(x11_display_num));
 	if (eglDisplay == EGL_NO_DISPLAY) {
 		log(LOG_INFO, "eglGetDisplay failed, disabling DMA-BUF.\n");
 		return false;
@@ -29,13 +29,13 @@ bool EGLState::is_supported(const char *x11_display) {
 	eglTerminate(eglDisplay);
 
 	PFNEGLCREATEIMAGEKHRPROC eglCreateImageKHR =
-		(PFNEGLCREATEIMAGEKHRPROC)eglGetProcAddress("eglCreateImageKHR");
+		reinterpret_cast<PFNEGLCREATEIMAGEKHRPROC>(eglGetProcAddress("eglCreateImageKHR"));
 	if (eglCreateImageKHR == nullptr) {
 		log(LOG_INFO, "EGL EGL_KHR_gl_texture_2D_image extension not supported, DMA-BUF not supported.\n");
 		return false;
 	}
 	PFNGLEGLIMAGETARGETTEXTURE2DOESPROC eglImageTargetTexture2DOES =
-		(PFNGLEGLIMAGETARGETTEXTURE2DOESPROC)
+		reinterpret_cast<PFNGLEGLIMAGETARGETTEXTURE2DOESPROC>(eglGetProcAddress("glEGLImageTargetTexture2DOES"));
 			eglGetProcAddress("glEGLImageTargetTexture2DOES");
 	if (eglImageTargetTexture2DOES == nullptr) {
 		log(LOG_INFO, "EGL EGL_EXT_image_dma_buf_import extension not supported, DMA-BUF not supported.\n");
@@ -71,7 +71,7 @@ EGLState::EGLState(const char *x11_display, int window_id, int fd, uint32_t widt
 		EGL_NONE,
 	};
 
-	egl_display = eglGetDisplay((EGLNativeDisplayType)x11_display_num);
+	egl_display = eglGetDisplay(reinterpret_cast<EGLNativeDisplayType>(x11_display_num));
 	if (egl_display == EGL_NO_DISPLAY) {
 		throw std::runtime_error("eglGetDisplay failed");
 	}
@@ -98,7 +98,7 @@ EGLState::EGLState(const char *x11_display, int window_id, int fd, uint32_t widt
 	}
 
 	egl_surface = eglCreateWindowSurface(egl_display, egl_config,
-										(EGLNativeWindowType)window_id, nullptr);
+										static_cast<EGLNativeWindowType>(window_id), nullptr);
 	if (egl_surface == EGL_NO_SURFACE) {
 		eglDestroyContext(egl_display, egl_context);
 		eglTerminate(egl_display);
@@ -115,7 +115,7 @@ EGLState::~EGLState() {
 	eglMakeCurrent(egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 
 	if (egl_image != EGL_NO_IMAGE_KHR) {
-		PFNEGLDESTROYIMAGEKHRPROC eglDestroyImageKHR = (PFNEGLDESTROYIMAGEKHRPROC)eglGetProcAddress("eglDestroyImageKHR");
+		PFNEGLDESTROYIMAGEKHRPROC eglDestroyImageKHR = reinterpret_cast<PFNEGLDESTROYIMAGEKHRPROC>(eglGetProcAddress("eglDestroyImageKHR"));
 		if (eglDestroyImageKHR != nullptr) {
 			eglDestroyImageKHR(egl_display, egl_image);
 			egl_image = EGL_NO_IMAGE_KHR;
@@ -147,20 +147,19 @@ EGLState::~EGLState() {
 
 void EGLState::import_dma_buf_fd(int fd, uint32_t width, uint32_t height, uint16_t stride, uint32_t size, uint32_t format) {
 	PFNEGLCREATEIMAGEKHRPROC eglCreateImageKHR =
-		(PFNEGLCREATEIMAGEKHRPROC)eglGetProcAddress("eglCreateImageKHR");
+		reinterpret_cast<PFNEGLCREATEIMAGEKHRPROC>(eglGetProcAddress("eglCreateImageKHR"));
 	PFNGLEGLIMAGETARGETTEXTURE2DOESPROC eglImageTargetTexture2DOES =
-		(PFNGLEGLIMAGETARGETTEXTURE2DOESPROC)
-			eglGetProcAddress("glEGLImageTargetTexture2DOES");
+		reinterpret_cast<PFNGLEGLIMAGETARGETTEXTURE2DOESPROC>(eglGetProcAddress("glEGLImageTargetTexture2DOES"));
 	if (eglCreateImageKHR == nullptr || eglImageTargetTexture2DOES == nullptr) {
 		throw std::runtime_error("eglCreateImageKHR or eglImageTargetTexture2DOES not supported.");
 	}
 
 	EGLint attrs[] = {
-		EGL_WIDTH, (EGLint)width,
-		EGL_HEIGHT, (EGLint)height,
-		EGL_LINUX_DRM_FOURCC_EXT, (EGLint)format,
+		EGL_WIDTH, static_cast<EGLint>(width),
+		EGL_HEIGHT, static_cast<EGLint>(height),
+		EGL_LINUX_DRM_FOURCC_EXT, static_cast<EGLint>(format),
 		EGL_DMA_BUF_PLANE0_FD_EXT, fd,
-		EGL_DMA_BUF_PLANE0_PITCH_EXT, (EGLint)stride,
+		EGL_DMA_BUF_PLANE0_PITCH_EXT, static_cast<EGLint>(stride),
 		EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
 		EGL_NONE,
 	};
@@ -168,7 +167,7 @@ void EGLState::import_dma_buf_fd(int fd, uint32_t width, uint32_t height, uint16
 		egl_display,
 		EGL_NO_CONTEXT,
 		EGL_LINUX_DMA_BUF_EXT,
-		(EGLClientBuffer) nullptr,
+		static_cast<EGLClientBuffer>(nullptr),
 		attrs
 	);
 	if (egl_image == EGL_NO_IMAGE_KHR)
@@ -213,9 +212,9 @@ void EGLState::render() {
 	// Draw a fullscreen quad with the texture
 	glBegin(GL_QUADS);
 		glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, 0.0f);
-		glTexCoord2f(1.0f, 1.0f); glVertex2f((GLfloat)width, 0.0f);
-		glTexCoord2f(1.0f, 0.0f); glVertex2f((GLfloat)width, (GLfloat)height);
-		glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, (GLfloat)height);
+		glTexCoord2f(1.0f, 1.0f); glVertex2f(static_cast<GLfloat>(width), 0.0f);
+		glTexCoord2f(1.0f, 0.0f); glVertex2f(static_cast<GLfloat>(width), static_cast<GLfloat>(height));
+		glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, static_cast<GLfloat>(height));
 	glEnd();
 
 	// display the rendered image

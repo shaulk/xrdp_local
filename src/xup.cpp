@@ -230,7 +230,7 @@ int XRDPModState::server_set_cursor_ex(struct mod *v, int x, int y, char *data,
 	// This is exactly the same as in xrdp
 	int Bpp = (bpp == 0) ? 3 : (bpp + 7) / 8;
 	XRDPModState *xrdp_mod_state = xrdp_mod_state_from_mod(v);
-	xrdp_mod_state->qt->set_cursor(x, y, (unsigned char *)data, (unsigned char *)mask, 32, 32, Bpp * 8);
+	xrdp_mod_state->qt->set_cursor(x, y, reinterpret_cast<unsigned char *>(data), reinterpret_cast<unsigned char *>(mask), 32, 32, Bpp * 8);
 	return 0;
 }
 
@@ -326,7 +326,7 @@ int XRDPModState::server_set_pointer_large(struct mod *v, int x, int y,
 	log(LOG_DEBUG, "server_set_pointer_large: %d, %d, %d, %d, %d\n", x, y, bpp, width, height);
 	int Bpp = (bpp == 0) ? 3 : (bpp + 7) / 8;
 	XRDPModState *xrdp_mod_state = xrdp_mod_state_from_mod(v);
-	xrdp_mod_state->qt->set_cursor(x, y, (unsigned char *)data, (unsigned char *)mask, width, height, Bpp * 8);
+	xrdp_mod_state->qt->set_cursor(x, y, reinterpret_cast<unsigned char *>(data), reinterpret_cast<unsigned char *>(mask), width, height, Bpp * 8);
 	return 0;
 }
 
@@ -339,7 +339,7 @@ int XRDPModState::server_paint_rects_ex(struct mod *v,
 							void *shmem_ptr, int shmem_bytes) {
 	log(LOG_DEBUG, "server_paint_rects_ex: %d, %d, %d, %d, %d, %d, %d, %d\n", num_drects, num_crects, left, top, width, height, flags, frame_id);
 	XRDPModState *xrdp_mod_state = xrdp_mod_state_from_mod(v);
-	xrdp_mod_state->qt->paint_rects(left, top, (unsigned char *)data, 0, 0, width, height, num_drects, (xrdp_rect_spec *)drects);
+	xrdp_mod_state->qt->paint_rects(left, top, reinterpret_cast<unsigned char *>(data), 0, 0, width, height, num_drects, reinterpret_cast<xrdp_rect_spec *>(drects));
 	v->mod_frame_ack(v, flags, frame_id);
 	if (shmem_ptr != nullptr) {
 		munmap(shmem_ptr, shmem_bytes);
@@ -354,7 +354,7 @@ int XRDPModState::server_egfx_cmd(struct mod *v,
 }
 
 XRDPModState *xrdp_mod_state_from_mod(struct mod *mod) {
-	return (XRDPModState *)mod->wm;
+	return reinterpret_cast<XRDPModState *>(mod->wm);
 }
 
 XRDPModState::XRDPModState(XRDPLocalState *xrdp_local, QtState *qt, const char *socket_path, bool xrdp_log_debug) {
@@ -371,8 +371,8 @@ XRDPModState::XRDPModState(XRDPLocalState *xrdp_local, QtState *qt, const char *
 		throw std::runtime_error("Failed to open libxup.so.");
 	}
 
-	mod_init = (struct mod *(*)(void))dlsym(mod_dl, "mod_init");
-	mod_exit = (int (*)(struct mod *v))dlsym(mod_dl, "mod_exit");
+	mod_init = reinterpret_cast<struct mod *(*)(void)>(dlsym(mod_dl, "mod_init"));
+	mod_exit = reinterpret_cast<int (*)(struct mod *v)>(dlsym(mod_dl, "mod_exit"));
 	if (mod_init == nullptr || mod_exit == nullptr) {
 		throw std::runtime_error("Failed to get mod_init or mod_exit symbol.");
 	}
@@ -383,7 +383,7 @@ XRDPModState::XRDPModState(XRDPLocalState *xrdp_local, QtState *qt, const char *
 	}
 
 	// wm is a pointer that is used by xrdp to store the upper layer state, so we can use it to do the same
-	xup_mod->wm = (tintptr)this;
+	xup_mod->wm = reinterpret_cast<tintptr>(this);
 
 	check_dma_buf_supported_in_libxup();
 
@@ -485,7 +485,7 @@ void XRDPModState::setup_xup_client_info() {
 	client_info.display_sizes.session_width = 1;
 	client_info.display_sizes.session_height = 1;
 
-	client_info.display_sizes.monitorCount = std::min((int)display_info->displays.size(), CLIENT_MONITOR_DATA_MAXIMUM_MONITORS);
+	client_info.display_sizes.monitorCount = std::min(static_cast<int>(display_info->displays.size()), CLIENT_MONITOR_DATA_MAXIMUM_MONITORS);
 
 	// Sane default for ~60 fps
 	client_info.normal_frame_interval = 16;
@@ -510,11 +510,11 @@ void XRDPModState::setup_xup_client_info() {
 		client_info.display_sizes.minfo[i].is_primary = (i == 0);
 
 		// Resize the full width to include every display
-		client_info.display_sizes.session_width = std::max((int)client_info.display_sizes.session_width, client_info.display_sizes.minfo[i].right + 1);
-		client_info.display_sizes.session_height = std::max((int)client_info.display_sizes.session_height, client_info.display_sizes.minfo[i].bottom + 1);
+		client_info.display_sizes.session_width = std::max(static_cast<int>(client_info.display_sizes.session_width), client_info.display_sizes.minfo[i].right + 1);
+		client_info.display_sizes.session_height = std::max(static_cast<int>(client_info.display_sizes.session_height), client_info.display_sizes.minfo[i].bottom + 1);
 
 		// Update the frame interval using the lowest refresh rate of all displays
-		client_info.normal_frame_interval = std::min(client_info.normal_frame_interval, (int)(1000 / display.refresh_rate));
+		client_info.normal_frame_interval = std::min(client_info.normal_frame_interval, static_cast<int>(1000 / display.refresh_rate));
 	}
 
 	// Set the client description to the name of the application
@@ -537,7 +537,7 @@ void XRDPModState::setup_xup_mod() {
 		throw std::runtime_error("Failed to start xup mod.");
 	}
 	log(LOG_DEBUG, "xup_mod.mod_start successful.\n");
-	xup_mod->mod_set_param(xup_mod, "client_info", (const char *)&client_info);
+	xup_mod->mod_set_param(xup_mod, "client_info", reinterpret_cast<const char *>(&client_info));
 	xup_mod->mod_set_param(xup_mod, "port", socket_path);
 	if (xup_mod->mod_connect(xup_mod) != 0) {
 		throw std::runtime_error("Failed to connect to xup mod.");
@@ -553,14 +553,14 @@ void XRDPModState::setup_xup_mod() {
 }
 
 int XRDPModState::dma_buf_supported_in_libxup_callback(struct dl_phdr_info *info, size_t size, void *data) {
-	XRDPModState *mod_state = (XRDPModState *)data;
+	XRDPModState *mod_state = reinterpret_cast<XRDPModState *>(data);
 	if (info->dlpi_name != nullptr && strstr(info->dlpi_name, "libxup.so") != nullptr) {
 		for (int i = 0; i < info->dlpi_phnum; i++) {
 			if (info->dlpi_phdr[i].p_type == PT_LOAD) {
-				uint8_t *start = (uint8_t *)(info->dlpi_addr + info->dlpi_phdr[i].p_vaddr);
+				uint8_t *start = reinterpret_cast<uint8_t *>(info->dlpi_addr + info->dlpi_phdr[i].p_vaddr);
 				size_t size = info->dlpi_phdr[i].p_memsz;
 				log(LOG_DEBUG, "Checking for mod_send_dma_buf_notify %p in %s at %p %p\n", mod_state->xup_mod->mod_send_dma_buf_notify, info->dlpi_name, start, start + size);
-				if (mod_state->xup_mod->mod_send_dma_buf_notify != nullptr && mod_state->xup_mod->mod_send_dma_buf_notify >= (void *)start && mod_state->xup_mod->mod_send_dma_buf_notify < (void *)(start + size)) {
+				if (mod_state->xup_mod->mod_send_dma_buf_notify != nullptr && mod_state->xup_mod->mod_send_dma_buf_notify >= reinterpret_cast<void *>(start) && mod_state->xup_mod->mod_send_dma_buf_notify < reinterpret_cast<void *>(start + size)) {
 					mod_state->dma_buf_supported_in_libxup = 1;
 					return 1;
 				}

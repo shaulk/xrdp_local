@@ -13,7 +13,7 @@
 #include <X11/Xlib.h>
 
 static int fake_argc = 1;
-static char *fake_argv[] = { (char *)"xrdp_local", nullptr };
+static char *fake_argv[] = { reinterpret_cast<char *>(const_cast<char *>("xrdp_local")), nullptr };
 
 QtState::QtState(XRDPLocalState *xrdp_local, int max_displays, bool use_dma_buf) : app_ready_latch(1)
 {
@@ -118,7 +118,7 @@ void QtState::set_cursor(int x, int y, unsigned char *data, unsigned char *mask,
 {
 	if (bpp == 32) {
 		// Assume ARGB32 with correct alpha (which is what xorgxrdp sends when using full color cursors)
-		QImage image = QImage((unsigned char *)data, width, height, QImage::Format_ARGB32).mirrored(false, true);
+		QImage image = QImage(reinterpret_cast<unsigned char *>(data), width, height, QImage::Format_ARGB32).mirrored(false, true);
 		QCursor cursor(QPixmap::fromImage(image), x, y);
 		window->setCursor(cursor);
 		return;
@@ -126,17 +126,17 @@ void QtState::set_cursor(int x, int y, unsigned char *data, unsigned char *mask,
 
 	// Convert an RGB888 image and a monochrome mask to an ARGB32 image with opacity set to the mask
 	int Bpp = (bpp == 0) ? 3 : (bpp + 7) / 8;
-	uint32_t *data_argb32 = (uint32_t *)malloc(width * height * 4);
+	uint32_t *data_argb32 = reinterpret_cast<uint32_t *>(malloc(width * height * 4));
 	memset(data_argb32, 0, width * height * 4);
 	uint32_t bit_mask = 0xFFFFFFFF >> (32 - bpp);
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
 			if (((mask[(y * width + x) / 8] >> (7 - (x % 8))) & 1) == 0) {
-				data_argb32[(height - y - 1) * width + x] = 0xFF000000 | (*(uint32_t *)&data[y * width * Bpp + x * Bpp] & bit_mask);
+				data_argb32[(height - y - 1) * width + x] = 0xFF000000 | (*reinterpret_cast<uint32_t *>(&data[y * width * Bpp + x * Bpp]) & bit_mask);
 			}
 		}
 	}
-	QCursor cursor(QPixmap::fromImage(QImage((unsigned char *)data_argb32, width, height, QImage::Format_ARGB32)), x, y);
+	QCursor cursor(QPixmap::fromImage(QImage(reinterpret_cast<unsigned char *>(data_argb32), width, height, QImage::Format_ARGB32)), x, y);
 	window->setCursor(cursor);
 	free(data_argb32);
 }
@@ -150,7 +150,7 @@ std::unique_ptr<struct display_info> QtState::get_display_info()
 {
 	std::unique_ptr<struct display_info> display_info = std::make_unique<struct display_info>();
 	auto screens = QGuiApplication::screens();
-	for (int i = 0; i < std::min((int)screens.size(), displays_to_use); i++) {
+	for (int i = 0; i < std::min(static_cast<int>(screens.size()), displays_to_use); i++) {
 		QScreen *screen = screens.at(i);
 		int orientation;
 		// RDP uses degrees for orientation
@@ -176,10 +176,10 @@ std::unique_ptr<struct display_info> QtState::get_display_info()
 			.y = screen->geometry().y(),
 			.width = screen->geometry().width(),
 			.height = screen->geometry().height(),
-			.physical_width = (int)screen->physicalSize().width(),
-			.physical_height = (int)screen->physicalSize().height(),
+			.physical_width = static_cast<int>(screen->physicalSize().width()),
+			.physical_height = static_cast<int>(screen->physicalSize().height()),
 			.orientation = orientation,
-			.refresh_rate = (int)screen->refreshRate()
+			.refresh_rate = static_cast<int>(screen->refreshRate())
 		});
 	}
 	return display_info;
