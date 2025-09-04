@@ -1,6 +1,7 @@
 #ifndef QT_EGL_H
 #define QT_EGL_H
 
+#define USE_X11
 #include <GL/gl.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>

@@ -1,4 +1,4 @@
-Source: xrdp_local
+Source: xrdp-local
 Section: x11
 Priority: optional
 Maintainer: Shaul Kremer <shaulk@users.noreply.github.com>
@@ -6,22 +6,27 @@ Rules-Requires-Root: no
 Build-Depends:
  debhelper-compat (= 13),
  cmake,
+ pkg-config,
  qt6-base-dev,
+ libegl1-mesa-dev,
  libargparse-dev,
+ lsb-release,
  xrdp
 Standards-Version: 4.6.2
 Homepage: https://github.com/shaulk/xrdp_local
 Vcs-Browser: https://github.com/shaulk/xrdp_local
 Vcs-Git: https://github.com/shaulk/xrdp_local.git
 
-Package: xrdp_local
+Package: xrdp-local
 Architecture: any
 Multi-Arch: foreign
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
- xrdp (= ${binary:Version})
-Description: xrdp_local
+ qt6-qpa-plugins,
+ xrdp (= ${binary:Version}),
+ xorgxrdp (>= 0.10.4),
+Description: Local client for xrdp providing seamless switching between local and RDP connections - core
  xrdp_local allows you to connect to local xrdp sessions without using RDP,
  in effect letting you switch your xrdp session between using the local hardware
  normally and connecting remotely using RDP.
