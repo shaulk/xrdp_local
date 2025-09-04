@@ -33,7 +33,7 @@ for package in xrdp xrdp-devel xrdp-selinux
 do
 	pkg=$package-$version-1_dmabuf.$DISTRO_SHORTNAME$DISTRO_VERSION.$(docker run --rm --platform linux/$ARCH $DISTRO_NAME:$DISTRO_VERSION bash -c "rpm --eval '%{_arch}'").rpm
 	if ! [ -f deps/$pkg ]; then
-		curl https://github.com/shaulk/xrdp_local_deps/releases/download/v$version/$pkg -o deps/$pkg
+		curl -L https://github.com/shaulk/xrdp_local_deps/releases/download/v$version/$pkg -o deps/$pkg
 	fi
 	pkgs+=($pkg)
 done

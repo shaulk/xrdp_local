@@ -21,7 +21,7 @@ mkdir -p deps
 
 xrdp_pkg=xrdp_$version-1dmabuf_$ARCH.$DISTRO_NAME-$DISTRO_VERSION.deb
 if ! [ -f deps/$xrdp_pkg ]; then
-	curl https://github.com/shaulk/xrdp_local_deps/releases/download/v$version/$xrdp_pkg -o deps/$xrdp_pkg
+	curl -L https://github.com/shaulk/xrdp_local_deps/releases/download/v$version/$xrdp_pkg -o deps/$xrdp_pkg
 fi
 
 docker buildx build \

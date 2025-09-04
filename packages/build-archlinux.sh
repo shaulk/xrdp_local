@@ -6,12 +6,13 @@ set -x
 ARCH="$1"
 
 mkdir -p output
+mkdir -p deps
 
 version=$(git describe --tags | cut -b2-)
 
 xrdp_pkg=xrdp-dmabuf-$version-1-$(uname -m).archlinux.pkg.tar.zst
 if ! [ -f deps/$xrdp_pkg ]; then
-	curl https://github.com/shaulk/xrdp_local_deps/releases/download/v$version/$xrdp_pkg -o deps/$xrdp_pkg
+	curl -L https://github.com/shaulk/xrdp_local_deps/releases/download/v$version/$xrdp_pkg -o deps/$xrdp_pkg
 fi
 
 docker buildx build \
