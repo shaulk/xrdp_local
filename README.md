@@ -77,12 +77,12 @@ version of xrdp or distro,
 Binary packages of xrdp_local, xrdp_local_session, and the modified xrdp and
 xorgxrdp are currently available for:
 - Arch Linux, x86_64
-- Debian 12 (bookworm), x86_64
-- Debian 13 (trixie), x86_64
-- Fedora 42, x86_64
+- Debian 12 (bookworm), x86_64, arm64
+- Debian 13 (trixie), x86_64, arm64
+- Fedora 42, x86_64, arm64
 - Ubuntu 22.04 (jammy), x86_64
-- Ubuntu 24.04 (noble), x86_64
-- Ubuntu 25.04 (plucky), x86_64
+- Ubuntu 24.04 (noble), x86_64, arm64
+- Ubuntu 25.04 (plucky), x86_64, arm64
 
 Package sources and binary releases for the modified xrdp and xorgxrdp
 (including a PKGBUILD for Arch Linux) are available in the

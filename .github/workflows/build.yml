@@ -13,7 +13,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [debian-trixie, debian-bookworm, ubuntu-jammy, ubuntu-noble, ubuntu-plucky, archlinux, fedora-42]
-        base-image: [ubuntu-24.04]
+        base-image: [ubuntu-24.04, ubuntu-24.04-arm64]
+        exclude:
+          - os: archlinux
+            base-image: ubuntu-24.04-arm64
+          - os: ubuntu-jammy
+            base-image: ubuntu-24.04-arm64
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
